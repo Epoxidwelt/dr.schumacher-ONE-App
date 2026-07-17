@@ -71,3 +71,13 @@ Hinweis: Empfehlungen sind Orientierungshilfen. Verbindlich sind immer die aktue
 - Vergleich von Wirkspektrum, Stärken, Gebinden und aktivem Preis
 - automatisch erzeugter Formulierungsvorschlag für das Kundengespräch
 - Auswahl bleibt lokal auf dem Gerät gespeichert
+
+
+## Neu in Version 1.5
+
+- Mehrere lokal gespeicherte Merklisten für Kundentermine
+- Interne Wettbewerbsorientierung mit möglichen Produktalternativen
+- Gesprächsassistent für Kurzvorstellung, Bedarfsermittlung, Preiseinwand und Abschlussfrage
+- Alle neuen Daten bleiben lokal im Browser; keine Cloud-Übertragung
+
+Wichtig: Wettbewerbszuordnungen und Gesprächsvorschläge sind interne Orientierungshilfen. Verbindlich sind ausschließlich aktuelle offizielle Produktinformationen, Freigaben und Sicherheitsunterlagen.

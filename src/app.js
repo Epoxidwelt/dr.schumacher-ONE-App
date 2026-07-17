@@ -34,7 +34,11 @@ const state = {
   size: '',
   recent: JSON.parse(localStorage.getItem('recentProducts') || '[]'),
   advisor: {category:'', spectrum:'', alcohol:'', need:''},
-  compareIds: JSON.parse(localStorage.getItem('compareIds') || '[]')
+  compareIds: JSON.parse(localStorage.getItem('compareIds') || '[]'),
+  lists: JSON.parse(localStorage.getItem('productLists') || '{}'),
+  activeList: localStorage.getItem('activeProductList') || 'Meine Merkliste',
+  competitorQuery: '',
+  talkProduct: '', talkSituation: 'Kurzvorstellung'
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -55,7 +59,10 @@ function icon(name) {
     settings:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1A8 8 0 0 0 15 6l-.3-2.6h-4L10.4 6a8 8 0 0 0-1.6 1L6.5 6 4.5 9.5 6.6 11a7 7 0 0 0 0 2l-2.1 1.5 2 3.4 2.4-1A8 8 0 0 0 10.5 18l.3 2.6h4L15.1 18a8 8 0 0 0 1.6-1l2.3 1 2-3.4-2.1-1.5c.1-.4.1-.7.1-1.1Z"/></svg>',
     advisor:'<svg viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 4V5Z"/><path d="M8 9h8M8 13h5"/></svg>',
     compare:'<svg viewBox="0 0 24 24"><path d="M7 4v16M17 4v16M3 8h8M13 16h8"/></svg>',
-    recent:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
+    recent:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+    lists:'<svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>',
+    competition:'<svg viewBox="0 0 24 24"><path d="M4 7h16M7 4v16M17 4v16M4 17h16"/></svg>',
+    talk:'<svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4V5Z"/><path d="M8 9h8M8 12h6"/></svg>'
   };
   return icons[name] || '';
 }
@@ -91,6 +98,9 @@ function render() {
   if (state.screen === 'advisor') html = header(true) + advisorScreen() + bottomNav('home');
   if (state.screen === 'recent') html = header(true) + recentScreen() + bottomNav('home');
   if (state.screen === 'compare') html = header(true) + compareScreen() + bottomNav('home');
+  if (state.screen === 'lists') html = header(true) + listsScreen() + bottomNav('favorites');
+  if (state.screen === 'competition') html = header(true) + competitionScreen() + bottomNav('home');
+  if (state.screen === 'talk') html = header(true) + talkScreen() + bottomNav('home');
   app.innerHTML = html;
   bind();
 }
@@ -120,7 +130,10 @@ function menuScreen() {
     ['downloads','Downloads','Aktuelle Unterlagen online'],
     ['advisor','Produktberater','In wenigen Fragen zum passenden Produkt'],
     ['compare','Produktvergleich','Bis zu drei Produkte direkt vergleichen'],
-    ['recent','Zuletzt angesehen','Schnell zurück zu geöffneten Produkten']
+    ['recent','Zuletzt angesehen','Schnell zurück zu geöffneten Produkten'],
+    ['lists','Merklisten','Produkte für Termine zusammenstellen'],
+    ['competition','Wettbewerbsvergleich','Alternativen schnell einordnen'],
+    ['talk','Gesprächsassistent','Passende Argumentation vorbereiten']
   ];
   return `<main class="page menu-page">
     <section class="intro-card"><div><span class="eyebrow">Schnell. Einfach. Aktuell.</span><h1>Was möchten Sie zeigen?</h1><p>Wählen Sie einen Bereich oder suchen Sie direkt nach einem Produkt.</p></div><div class="status-card"><span>Preisliste</span><strong>${state.priceList}</strong><small>${Object.keys(state.prices).length} Preiszeilen lokal</small></div></section>
@@ -239,6 +252,40 @@ function comparisonPitch(list) {
   return `Wir vergleichen ${names}. Entscheidend sind Einsatzbereich, benötigtes Wirkspektrum, Materialverträglichkeit und gewünschte Gebindeform. Anschließend prüfen wir die verbindlichen Einwirkzeiten und Freigaben in den aktuellen offiziellen Unterlagen.`;
 }
 
+const COMPETITORS = [
+  {term:'mikrobac', label:'Mikrobac / alkoholfreie Fläche', matches:['descosept-spezial'], note:'Für empfindliche Oberflächen und alkoholfreie Anwendung prüfen.'},
+  {term:'incidin', label:'Incidin / Flächendesinfektion', matches:['descosept-sensitive','descosept-sensitive-wipes','ultrasol-oxy'], note:'Je nach Material, Tuchform und benötigtem Wirkspektrum auswählen.'},
+  {term:'desderman', label:'Desderman / Händedesinfektion', matches:['aseptoman-med','descoderm','aseptoman-viral'], note:'Hautverträglichkeit und erforderliches Wirkspektrum vergleichen.'},
+  {term:'sterillium', label:'Sterillium / Händedesinfektion', matches:['aseptoman-med','aseptoman-gel','descoderm'], note:'Darreichungsform und Anwenderpräferenz berücksichtigen.'},
+  {term:'perform', label:'Perform / Ausbruchsfall Fläche', matches:['ultrasol-active','ultrasol-oxy'], note:'Verbindliche Listungen und Einwirkzeiten aktuell prüfen.'},
+  {term:'gigasept', label:'Gigasept / Instrumente', matches:['perfektan-active','descoton-extra'], note:'Instrumentenmaterial, Konzentration und Standzeit prüfen.'}
+];
+
+function listsScreen(){
+  if(!state.lists[state.activeList]) state.lists[state.activeList]=[];
+  const names=Object.keys(state.lists).length?Object.keys(state.lists):['Meine Merkliste'];
+  const ids=state.lists[state.activeList]||[];
+  const chosen=ids.map(id=>PRODUCTS.find(p=>p.id===id)).filter(Boolean);
+  return `<main class="page lists-page"><div class="section-heading"><div><span class="eyebrow">Terminvorbereitung</span><h1>Merklisten</h1><p>Stellen Sie Produkte für Kundentermine zusammen. Alles bleibt lokal auf diesem Gerät.</p></div><button class="secondary-button" data-action="new-list">Neue Liste</button></div><div class="list-tabs">${names.map(n=>`<button class="filter-chip ${n===state.activeList?'active':''}" data-list-select="${escapeHtml(n)}">${escapeHtml(n)}</button>`).join('')}</div><section class="list-builder"><div><h2>${escapeHtml(state.activeList)}</h2><div class="product-list">${chosen.map(p=>listProductCard(p,true)).join('')||'<div class="empty-state"><h2>Liste ist noch leer</h2><p>Wählen Sie rechts Produkte aus.</p></div>'}</div></div><div><h2>Produkte hinzufügen</h2><div class="quick-product-list">${PRODUCTS.map(p=>listProductCard(p,false)).join('')}</div></div></section></main>`;
+}
+function listProductCard(p,selected){return `<article class="mini-product"><span style="--dot:${p.color}"></span><div><strong>${p.name}</strong><small>${p.kind}</small></div><button ${selected?`data-list-remove="${p.id}"`:`data-list-add="${p.id}"`}>${selected?'−':'+'}</button></article>`}
+function persistLists(){localStorage.setItem('productLists',JSON.stringify(state.lists));}
+function addToList(id){if(!state.lists[state.activeList])state.lists[state.activeList]=[];if(!state.lists[state.activeList].includes(id))state.lists[state.activeList].push(id);persistLists();render();}
+function removeFromList(id){state.lists[state.activeList]=(state.lists[state.activeList]||[]).filter(x=>x!==id);persistLists();render();}
+function createList(){const name=prompt('Name der neuen Merkliste, z. B. Klinikum Dortmund');if(!name)return;const clean=name.trim().slice(0,50);if(!clean)return;state.lists[clean]=state.lists[clean]||[];state.activeList=clean;localStorage.setItem('activeProductList',clean);persistLists();render();}
+
+function competitionScreen(){
+ const q=state.competitorQuery.toLowerCase().trim(); const rows=COMPETITORS.filter(x=>!q||`${x.term} ${x.label}`.includes(q));
+ return `<main class="page competition-page"><div class="section-heading"><div><span class="eyebrow">Interne Orientierung</span><h1>Wettbewerbsvergleich</h1><p>Suchbegriff eingeben und mögliche Dr.-Schumacher-Alternativen anzeigen.</p></div></div><label class="search-box">${icon('search')}<input id="competitorSearch" value="${escapeHtml(state.competitorQuery)}" placeholder="z. B. Mikrobac, Sterillium oder Gigasept"></label><div class="competition-list">${rows.map(r=>`<section class="competition-card"><div><small>Wettbewerbsbezug</small><h2>${r.label}</h2><p>${r.note}</p></div><div class="alternative-grid">${r.matches.map(id=>PRODUCTS.find(p=>p.id===id)).filter(Boolean).map(p=>`<button data-product="${p.id}"><strong>${p.name}</strong><small>${p.kind}</small><span>Produkt öffnen →</span></button>`).join('')}</div></section>`).join('')||'<div class="empty-state"><h2>Keine Zuordnung gefunden</h2><p>Versuchen Sie einen allgemeineren Produkt- oder Markennamen.</p></div>'}</div><div class="advisor-note">Diese Zuordnung ist eine interne Gesprächshilfe und keine Gleichwertigkeits- oder Freigabeerklärung. Anwendung, Materialverträglichkeit, Wirkbereich und Einwirkzeit müssen anhand der aktuellen Unterlagen geprüft werden.</div></main>`;
+}
+
+function talkScreen(){
+ const product=PRODUCTS.find(p=>p.id===state.talkProduct)||PRODUCTS[0]; if(!state.talkProduct)state.talkProduct=product.id;
+ const situations=['Kurzvorstellung','Bedarf ermitteln','Einwand: zu teuer','Abschlussfrage'];
+ return `<main class="page talk-page"><div class="section-heading"><div><span class="eyebrow">Kundengespräch</span><h1>Gesprächsassistent</h1><p>Produkt und Situation auswählen. Die Formulierung lässt sich direkt kopieren.</p></div></div><section class="talk-config"><label>Produkt<select id="talkProduct">${PRODUCTS.map(p=>`<option value="${p.id}" ${p.id===product.id?'selected':''}>${p.name}</option>`).join('')}</select></label><label>Gesprächssituation<select id="talkSituation">${situations.map(x=>`<option ${x===state.talkSituation?'selected':''}>${x}</option>`).join('')}</select></label></section><section class="pitch-card"><span class="eyebrow">Formulierungsvorschlag</span><h2>${product.name}</h2><p class="talk-output">${buildTalkText()}</p><button class="primary-button compact" data-action="copy-talk">Text kopieren</button></section><section class="info-card"><h2>Gesprächsanker</h2><ul>${product.facts.map(f=>`<li><span>✓</span>${f}</li>`).join('')}</ul><div class="info-warning">Aussagen vor Verwendung mit der aktuellen offiziellen Produktinformation abgleichen.</div></section></main>`;
+}
+function buildTalkText(){const p=PRODUCTS.find(x=>x.id===state.talkProduct)||PRODUCTS[0];const fact=p.facts[0].replace(/^[A-ZÄÖÜ]/,m=>m.toLowerCase());if(state.talkSituation==='Bedarf ermitteln')return `Damit ich Ihnen das passende Produkt empfehlen kann: Auf welchen Flächen oder in welchem Prozess möchten Sie es einsetzen, welches Wirkspektrum benötigen Sie und gibt es empfindliche Materialien oder besondere Vorgaben? Anschließend prüfen wir gemeinsam, ob ${p.name} passt.`;if(state.talkSituation==='Einwand: zu teuer')return `Ich verstehe, dass der Preis wichtig ist. Bei ${p.name} sollten wir deshalb nicht nur den Gebindepreis betrachten, sondern Anwendung, Verbrauch, Prozessaufwand und Produktausnutzung. Besonders relevant ist, dass ${fact}. Lassen Sie uns die Kosten pro Anwendung vergleichen.`;if(state.talkSituation==='Abschlussfrage')return `Auf Basis Ihrer Anforderungen halte ich ${p.name} für eine passende Option. Sollen wir die aktuelle Produktinformation gemeinsam prüfen und anschließend ein Muster beziehungsweise ein konkretes Angebot für das passende Gebinde vorbereiten?`;return `${p.name} ist für ${p.kind.toLowerCase()} vorgesehen. Der zentrale Mehrwert: ${fact}. Entscheidend ist, dass wir das Produkt passend zu Ihrem Einsatzbereich und dem benötigten Wirkspektrum auswählen. Die verbindlichen Einwirkzeiten und Freigaben prüfen wir direkt in der aktuellen Produktinformation.`}
+
 function favoritesScreen() {
   const list = PRODUCTS.filter(p => state.favorites.includes(p.id));
   return `<main class="page products-page"><div class="section-heading"><div><span class="eyebrow">Persönliche Auswahl</span><h1>Favoriten</h1></div><span class="result-count">${list.length}</span></div><div class="product-list">${list.map(productCard).join('') || '<div class="empty-state"><h2>Noch keine Favoriten</h2><p>Tippen Sie bei einem Produkt auf den Stern.</p></div>'}</div></main>`;
@@ -248,7 +295,7 @@ function settingsScreen() {
   return `<main class="page settings-page"><div class="section-heading"><div><span class="eyebrow">Verwaltung</span><h1>Einstellungen</h1></div></div>
     <section class="settings-card"><button data-action="customer-mode"><span><strong>Kundengespräch-Modus</strong><small>${state.customerMode?'Aktiv – Preise sind verborgen':'Inaktiv – Preise sind sichtbar'}</small></span><b>${state.customerMode?'✓':'›'}</b></button><button data-action="prices"><span><strong>Preisliste wechseln</strong><small>Aktuell: ${state.priceList}</small></span><b>›</b></button><label class="file-row"><span><strong>Excel-Preise importieren</strong><small>.xlsx, .xls oder .csv – bleibt lokal</small></span><b>Datei auswählen</b><input id="excel" type="file" accept=".xlsx,.xls,.csv"></label><div id="importStatus" class="import-status">${Object.keys(state.prices).length ? `${Object.keys(state.prices).length} Preiszeilen gespeichert` : 'Noch keine Preisdatei importiert'}</div><button data-action="clear-prices"><span><strong>Lokale Preise löschen</strong><small>Entfernt nur die Daten auf diesem Gerät</small></span><b>×</b></button></section>
     <section class="settings-card"><a href="preisvorlage.csv" download><span><strong>Excel-Vorlage herunterladen</strong><small>Vorlage für UVP und FH 1 bis FH 5</small></span><b>↓</b></a><a href="${OFFICIAL.home}" target="_blank"><span><strong>Dr.-Schumacher-Website</strong><small>Öffnet die offizielle Website</small></span><b>↗</b></a></section>
-    <p class="version">Interner Produktberater · Präsentationsversion 1.4</p>
+    <p class="version">Interner Produktberater · Präsentationsversion 1.5</p>
   </main>`;
 }
 
@@ -288,7 +335,7 @@ function bind() {
   $('[data-action="back"]')?.addEventListener('click', () => { state.screen = state.screen==='detail' ? 'products' : 'menu'; render(); });
   $('[data-action="clear-prices"]')?.addEventListener('click', () => { state.prices={}; localStorage.removeItem('prices'); render(); });
   document.querySelectorAll('[data-action="customer-mode"]').forEach(button => button.onclick = () => { state.customerMode=!state.customerMode; sessionStorage.setItem('customerMode', String(state.customerMode)); render(); });
-  document.querySelectorAll('[data-category]').forEach(button => button.onclick = () => { const key=button.dataset.category; if(key==='advisor'){state.screen='advisor'; render(); return;} if(key==='recent'){state.screen='recent'; render(); return;} if(key==='compare'){state.screen='compare'; render(); return;} state.category=key; state.screen='products'; state.query=''; state.spectrum='all'; render(); });
+  document.querySelectorAll('[data-category]').forEach(button => button.onclick = () => { const key=button.dataset.category; if(['advisor','recent','compare','lists','competition','talk'].includes(key)){state.screen=key; render(); return;} state.category=key; state.screen='products'; state.query=''; state.spectrum='all'; render(); });
   document.querySelectorAll('[data-spectrum]').forEach(button => button.onclick = () => { state.spectrum=button.dataset.spectrum; render(); });
   document.querySelectorAll('[data-product]').forEach(row => row.onclick = event => { if (event.target.closest('[data-favorite]')) return; state.selected=row.dataset.product; state.size=''; state.recent=[state.selected,...state.recent.filter(x=>x!==state.selected)].slice(0,8); localStorage.setItem('recentProducts', JSON.stringify(state.recent)); state.screen='detail'; render(); });
   document.querySelectorAll('[data-favorite]').forEach(button => button.onclick = event => { event.stopPropagation(); toggleFavorite(button.dataset.favorite); });
@@ -299,11 +346,19 @@ function bind() {
   $('[data-action="reset-advisor"]')?.addEventListener('click', () => { state.advisor={category:'',spectrum:'',alcohol:'',need:''}; render(); });
   document.querySelectorAll('[data-compare]').forEach(button => button.onclick = () => toggleCompare(button.dataset.compare));
   $('[data-action="copy-pitch"]')?.addEventListener('click', async () => { const text=comparisonPitch(state.compareIds.map(id=>PRODUCTS.find(p=>p.id===id)).filter(Boolean)); try { await navigator.clipboard.writeText(text); alert('Text wurde kopiert.'); } catch { alert(text); } });
+  document.querySelectorAll('[data-list-add]').forEach(button => button.onclick = () => addToList(button.dataset.listAdd));
+  document.querySelectorAll('[data-list-remove]').forEach(button => button.onclick = () => removeFromList(button.dataset.listRemove));
+  $('[data-action="new-list"]')?.addEventListener('click', createList);
+  document.querySelectorAll('[data-list-select]').forEach(button => button.onclick = () => { state.activeList=button.dataset.listSelect; localStorage.setItem('activeProductList',state.activeList); render(); });
+  $('#competitorSearch')?.addEventListener('input', e => { state.competitorQuery=e.target.value; render(); });
+  $('#talkProduct')?.addEventListener('change', e => { state.talkProduct=e.target.value; render(); });
+  $('#talkSituation')?.addEventListener('change', e => { state.talkSituation=e.target.value; render(); });
+  $('[data-action="copy-talk"]')?.addEventListener('click', async () => { const text=buildTalkText(); try{await navigator.clipboard.writeText(text);alert('Gesprächsleitfaden kopiert.')}catch{alert(text)} });
   document.querySelectorAll('[data-nav]').forEach(button => button.onclick = () => {
     const nav = button.dataset.nav;
     if (nav==='home') state.screen='menu';
     if (nav==='search') { state.screen='products'; state.category='all'; }
-    if (nav==='favorites') state.screen='favorites';
+    if (nav==='favorites') state.screen='lists';
     if (nav==='settings') state.screen='settings';
     render();
   });
