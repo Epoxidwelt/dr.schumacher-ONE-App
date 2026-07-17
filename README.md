@@ -53,3 +53,13 @@ Hinweis: Die Produktdaten dieser Präsentationsversion dienen als funktionales U
 - Kundengespräch-Modus verbirgt sämtliche Preise und internen Konditionen.
 - Excel-Import unterstützt mehrere Gebinde je Artikelnummer.
 - Importprüfung meldet fehlende Artikelnummern, leere Preiszeilen, Dubletten und unbekannte Artikel.
+
+## Neu in Version 1.3
+
+- Geführter Produktberater mit vier einfachen Fragen
+- Produktempfehlungen auf Basis der hinterlegten Produkteigenschaften
+- Bereich „Zuletzt angesehen“ mit lokalem Verlauf
+- Zusätzliche, touchfreundliche Menübereiche
+- Keine Cloud-Speicherung der Preislisten oder des Verlaufs
+
+Hinweis: Empfehlungen sind Orientierungshilfen. Verbindlich sind immer die aktuellen offiziellen Produktinformationen und Sicherheitsunterlagen.
