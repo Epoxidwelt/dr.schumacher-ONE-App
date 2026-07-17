@@ -45,3 +45,11 @@ Erwartete Spalten:
 - FH 5
 
 Hinweis: Die Produktdaten dieser Präsentationsversion dienen als funktionales UI-Muster. Verbindliche Produktinformationen, Wirksamkeiten und Einwirkzeiten sind stets den aktuell offiziellen Dokumenten zu entnehmen.
+
+
+## Version 1.2
+
+- Preislistenwahl gilt nur für die aktuelle Browsersitzung und erscheint nach einem Neustart erneut.
+- Kundengespräch-Modus verbirgt sämtliche Preise und internen Konditionen.
+- Excel-Import unterstützt mehrere Gebinde je Artikelnummer.
+- Importprüfung meldet fehlende Artikelnummern, leere Preiszeilen, Dubletten und unbekannte Artikel.
