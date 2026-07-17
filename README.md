@@ -102,7 +102,7 @@ Wichtig: Wettbewerbszuordnungen und Gesprächsvorschläge sind interne Orientier
 
 Hinweis: Der erzeugte Entwurf ist unverbindlich und muss vor dem Versand kaufmännisch geprüft werden.
 
-## Neu in Version 1.9
+## Neu in Version 2.0
 
 - Besuchsbericht für Kundentermine
 - Felder für Ansprechpartner, Ausgangssituation, Feedback, Muster, Ergebnis und nächste Schritte
@@ -114,7 +114,7 @@ Hinweis: Der erzeugte Entwurf ist unverbindlich und muss vor dem Versand kaufmä
 Alle Besuchsdaten bleiben lokal im Browser. Für eine unternehmensweite Nutzung sollte später eine freigegebene CRM-Schnittstelle ergänzt werden.
 
 
-## Neu in Version 1.9
+## Neu in Version 2.0
 
 - Follow-up-Dashboard aus lokal gespeicherten Besuchsberichten
 - Kennzahlen für überfällige, heute fällige, kommende und erledigte Aufgaben

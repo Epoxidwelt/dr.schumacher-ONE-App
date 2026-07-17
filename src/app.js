@@ -46,7 +46,8 @@ const state = {
   quoteItems: JSON.parse(localStorage.getItem('quoteItems') || '{}'),
   importMeta: JSON.parse(localStorage.getItem('priceImportMeta') || '{}'),
   visitReport: JSON.parse(localStorage.getItem('visitReport') || '{}'),
-  savedReports: JSON.parse(localStorage.getItem('savedVisitReports') || '[]')
+  savedReports: JSON.parse(localStorage.getItem('savedVisitReports') || '[]'),
+  globalQuery: ''
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -140,23 +141,42 @@ function menuScreen() {
     ['hands','Hände & Haut','Händedesinfektion & Pflege'],
     ['instruments','Instrumente','Aufbereitung & Desinfektion'],
     ['application','Applikation','Spendersysteme & Zubehör'],
-    ['all','Produktübersicht','Alle Produkte im Überblick'],
-    ['downloads','Downloads','Aktuelle Unterlagen online'],
     ['advisor','Produktberater','In wenigen Fragen zum passenden Produkt'],
     ['compare','Produktvergleich','Bis zu drei Produkte direkt vergleichen'],
-    ['recent','Zuletzt angesehen','Schnell zurück zu geöffneten Produkten'],
     ['lists','Merklisten','Produkte für Termine zusammenstellen'],
-    ['competition','Wettbewerbsvergleich','Alternativen schnell einordnen'],
-    ['talk','Gesprächsassistent','Passende Argumentation vorbereiten'],
     ['offer','Kundenübersicht','Merkliste als Präsentation oder PDF'],
     ['report','Besuchsbericht','CRM-Zusammenfassung und Follow-up'],
-    ['dashboard','Follow-up Dashboard','Offene Termine und Aufgaben im Blick']
+    ['dashboard','Follow-up Dashboard','Offene Termine und Aufgaben im Blick'],
+    ['downloads','Downloads','Aktuelle Unterlagen online'],
+    ['all','Alle Funktionen','Gesamte Produktübersicht öffnen']
   ];
-  return `<main class="page menu-page">
-    <section class="intro-card"><div><span class="eyebrow">Schnell. Einfach. Aktuell.</span><h1>Was möchten Sie zeigen?</h1><p>Wählen Sie einen Bereich oder suchen Sie direkt nach einem Produkt.</p></div><div class="status-card"><span>Preisliste</span><strong>${state.priceList}</strong><small>${Object.keys(state.prices).length} Preiszeilen lokal</small></div></section>
-    <div class="category-grid">${cards.map(([key,title,sub]) => `<button class="category-card ${key}" data-category="${key}"><span class="category-icon">${icon(key)}</span><span><strong>${title}</strong><small>${sub}</small></span><b>›</b></button>`).join('')}</div>
+  const today = new Date().toISOString().slice(0,10);
+  const openReports = state.savedReports.filter(r => (r.taskStatus || 'Offen') !== 'Erledigt');
+  const due = openReports.filter(r => r.followUp && r.followUp <= today).length;
+  const favoriteProducts = state.favorites.map(id => PRODUCTS.find(p => p.id === id)).filter(Boolean).slice(0,4);
+  const recentProducts = state.recent.map(id => PRODUCTS.find(p => p.id === id)).filter(Boolean).slice(0,4);
+  const searchResults = state.globalQuery.trim() ? PRODUCTS.filter(p => `${p.name} ${p.kind} ${p.sku} ${p.summary}`.toLowerCase().includes(state.globalQuery.toLowerCase())).slice(0,8) : [];
+  return `<main class="page menu-page cockpit-page">
+    <section class="cockpit-hero"><div><span class="eyebrow">Dr. Schumacher Sales Companion</span><h1>Guten Tag – womit möchten Sie starten?</h1><p>Produkte, Preise, Unterlagen und Kundentermine an einem Ort.</p></div><div class="status-card"><span>Aktive Preisliste</span><strong>${state.priceList}</strong><small>${state.customerMode?'Kundenmodus – Preise verborgen':Object.keys(state.prices).length+' Preiszeilen lokal'}</small></div></section>
+    <label class="global-search">${icon('search')}<input id="globalSearch" value="${escapeHtml(state.globalQuery)}" placeholder="Produkt, Artikelnummer oder Anwendung suchen"><span>⌘ K</span></label>
+    ${state.globalQuery.trim() ? `<section class="cockpit-search-results"><div class="section-heading"><div><span class="eyebrow">Sofortsuche</span><h2>${searchResults.length} Treffer</h2></div><button class="secondary-button" data-action="clear-global-search">Suche löschen</button></div><div class="product-list">${searchResults.map(productCard).join('') || '<div class="empty-state"><h2>Kein Produkt gefunden</h2><p>Versuchen Sie einen anderen Suchbegriff.</p></div>'}</div></section>` : ''}
+    <section class="cockpit-stats">
+      <button data-category="dashboard"><strong>${due}</strong><span>heute / überfällig</span><small>Follow-ups öffnen →</small></button>
+      <button data-category="favorites"><strong>${state.favorites.length}</strong><span>Favoriten</span><small>Schnellzugriff →</small></button>
+      <button data-category="lists"><strong>${Object.keys(state.lists).length}</strong><span>Merklisten</span><small>Termine vorbereiten →</small></button>
+      <button data-category="settings"><strong>${Object.keys(state.prices).length}</strong><span>Preisdatensätze</span><small>Import verwalten →</small></button>
+    </section>
+    <section class="cockpit-columns">
+      <div class="cockpit-panel"><div class="panel-title"><div><span class="eyebrow">Schnellzugriff</span><h2>Zuletzt angesehen</h2></div><button data-category="recent">Alle</button></div><div class="mini-products">${recentProducts.map(miniProductCard).join('') || '<p class="muted-copy">Noch keine Produkte geöffnet.</p>'}</div></div>
+      <div class="cockpit-panel"><div class="panel-title"><div><span class="eyebrow">Persönlich</span><h2>Favoriten</h2></div><button data-nav="favorites">Alle</button></div><div class="mini-products">${favoriteProducts.map(miniProductCard).join('') || '<p class="muted-copy">Noch keine Favoriten gespeichert.</p>'}</div></div>
+    </section>
+    <div class="category-grid compact-grid">${cards.map(([key,title,sub]) => `<button class="category-card ${key}" data-category="${key}"><span class="category-icon">${icon(key)}</span><span><strong>${title}</strong><small>${sub}</small></span><b>›</b></button>`).join('')}</div>
     <section class="online-card"><div class="online-dot"></div><div><strong>Unterlagen immer aktuell</strong><p>Produktinformationen, Datenblätter und Bilder werden direkt von schumacher-online.com geöffnet.</p></div><a href="${OFFICIAL.home}" target="_blank" rel="noopener">Website öffnen</a></section>
   </main>`;
+}
+
+function miniProductCard(product) {
+  return `<button class="mini-product" data-product="${product.id}"><span class="mini-product-icon" style="--product-color:${product.color}">${product.category==='hands'?'✋':product.category==='surface'?'▦':product.category==='instruments'?'✂':'▣'}</span><span><strong>${product.name}</strong><small>${product.kind}</small></span><b>›</b></button>`;
 }
 
 function productsScreen() {
@@ -525,12 +545,14 @@ function bind() {
   $('[data-action="back"]')?.addEventListener('click', () => { state.screen = state.screen==='detail' ? 'products' : 'menu'; render(); });
   $('[data-action="clear-prices"]')?.addEventListener('click', () => { state.prices={}; state.importMeta={}; localStorage.removeItem('prices'); localStorage.removeItem('priceImportMeta'); render(); });
   document.querySelectorAll('[data-action="customer-mode"]').forEach(button => button.onclick = () => { state.customerMode=!state.customerMode; sessionStorage.setItem('customerMode', String(state.customerMode)); render(); });
-  document.querySelectorAll('[data-category]').forEach(button => button.onclick = () => { const key=button.dataset.category; if(['advisor','recent','compare','lists','competition','talk','offer','report','dashboard'].includes(key)){state.screen=key; render(); return;} state.category=key; state.screen='products'; state.query=''; state.spectrum='all'; render(); });
+  document.querySelectorAll('[data-category]').forEach(button => button.onclick = () => { const key=button.dataset.category; if(key==='favorites'){state.screen='favorites';render();return;} if(key==='settings'){state.screen='settings';render();return;} if(['advisor','recent','compare','lists','competition','talk','offer','report','dashboard'].includes(key)){state.screen=key; render(); return;} state.category=key; state.screen='products'; state.query=''; state.spectrum='all'; render(); });
   document.querySelectorAll('[data-spectrum]').forEach(button => button.onclick = () => { state.spectrum=button.dataset.spectrum; render(); });
   document.querySelectorAll('[data-product]').forEach(row => row.onclick = event => { if (event.target.closest('[data-favorite]')) return; state.selected=row.dataset.product; state.size=''; state.recent=[state.selected,...state.recent.filter(x=>x!==state.selected)].slice(0,8); localStorage.setItem('recentProducts', JSON.stringify(state.recent)); state.screen='detail'; render(); });
   document.querySelectorAll('[data-favorite]').forEach(button => button.onclick = event => { event.stopPropagation(); toggleFavorite(button.dataset.favorite); });
   document.querySelectorAll('[data-size]').forEach(button => button.onclick = () => { state.size=button.dataset.size; render(); });
   $('#search')?.addEventListener('input', event => { state.query=event.target.value; render(); });
+  $('#globalSearch')?.addEventListener('input', event => { state.globalQuery=event.target.value; render(); setTimeout(()=>{const el=$('#globalSearch'); if(el){el.focus(); el.setSelectionRange(el.value.length,el.value.length);}},0); });
+  $('[data-action="clear-global-search"]')?.addEventListener('click', () => { state.globalQuery=''; render(); });
   $('#excel')?.addEventListener('change', importExcel);
   document.querySelectorAll('[data-advisor]').forEach(button => button.onclick = () => { state.advisor[button.dataset.advisor]=button.dataset.value; render(); });
   $('[data-action="reset-advisor"]')?.addEventListener('click', () => { state.advisor={category:'',spectrum:'',alcohol:'',need:''}; render(); });
