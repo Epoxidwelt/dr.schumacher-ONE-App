@@ -44,7 +44,9 @@ const state = {
   quoteNote: localStorage.getItem('quoteNote') || '',
   quoteValidUntil: localStorage.getItem('quoteValidUntil') || '',
   quoteItems: JSON.parse(localStorage.getItem('quoteItems') || '{}'),
-  importMeta: JSON.parse(localStorage.getItem('priceImportMeta') || '{}')
+  importMeta: JSON.parse(localStorage.getItem('priceImportMeta') || '{}'),
+  visitReport: JSON.parse(localStorage.getItem('visitReport') || '{}'),
+  savedReports: JSON.parse(localStorage.getItem('savedVisitReports') || '[]')
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -69,7 +71,9 @@ function icon(name) {
     lists:'<svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>',
     competition:'<svg viewBox="0 0 24 24"><path d="M4 7h16M7 4v16M17 4v16M4 17h16"/></svg>',
     talk:'<svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4V5Z"/><path d="M8 9h8M8 12h6"/></svg>',
-    offer:'<svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 11h6M9 15h6"/></svg>'
+    offer:'<svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 11h6M9 15h6"/></svg>',
+    report:'<svg viewBox="0 0 24 24"><path d="M5 3h14v18H5z"/><path d="M8 8h8M8 12h8M8 16h5"/><path d="m15 16 2 2 3-4"/></svg>',
+    dashboard:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 18h7M17.5 14.5V21"/></svg>'
   };
   return icons[name] || '';
 }
@@ -109,6 +113,8 @@ function render() {
   if (state.screen === 'competition') html = header(true) + competitionScreen() + bottomNav('home');
   if (state.screen === 'talk') html = header(true) + talkScreen() + bottomNav('home');
   if (state.screen === 'offer') html = header(true) + offerScreen() + bottomNav('home');
+  if (state.screen === 'report') html = header(true) + reportScreen() + bottomNav('home');
+  if (state.screen === 'dashboard') html = header(true) + dashboardScreen() + bottomNav('home');
   app.innerHTML = html;
   bind();
 }
@@ -142,7 +148,9 @@ function menuScreen() {
     ['lists','Merklisten','Produkte für Termine zusammenstellen'],
     ['competition','Wettbewerbsvergleich','Alternativen schnell einordnen'],
     ['talk','Gesprächsassistent','Passende Argumentation vorbereiten'],
-    ['offer','Kundenübersicht','Merkliste als Präsentation oder PDF']
+    ['offer','Kundenübersicht','Merkliste als Präsentation oder PDF'],
+    ['report','Besuchsbericht','CRM-Zusammenfassung und Follow-up'],
+    ['dashboard','Follow-up Dashboard','Offene Termine und Aufgaben im Blick']
   ];
   return `<main class="page menu-page">
     <section class="intro-card"><div><span class="eyebrow">Schnell. Einfach. Aktuell.</span><h1>Was möchten Sie zeigen?</h1><p>Wählen Sie einen Bereich oder suchen Sie direkt nach einem Produkt.</p></div><div class="status-card"><span>Preisliste</span><strong>${state.priceList}</strong><small>${Object.keys(state.prices).length} Preiszeilen lokal</small></div></section>
@@ -330,6 +338,114 @@ function offerScreen() {
     </section></main>`;
 }
 
+
+function reportScreen() {
+  const r = state.visitReport || {};
+  const selected = (state.lists[state.activeList] || []).map(id => PRODUCTS.find(p => p.id === id)).filter(Boolean);
+  const productNames = selected.map(p => p.name).join(', ');
+  const reportDate = r.date || new Date().toISOString().slice(0,10);
+  const followUp = r.followUp || '';
+  const summary = buildCrmSummary({...r, date: reportDate, products: productNames});
+  return `<main class="page report-page"><div class="section-heading no-print"><div><span class="eyebrow">Kundentermin dokumentieren</span><h1>Besuchsbericht</h1><p>Die Angaben bleiben lokal auf diesem Gerät und können als CRM-Text oder CSV exportiert werden.</p></div></div>
+    <section class="report-form no-print">
+      <label>Kunde / Einrichtung<input data-report-field="customer" value="${escapeHtml(r.customer || state.quoteCustomer || '')}" placeholder="z. B. Klinikum Dortmund"></label>
+      <label>Datum<input data-report-field="date" type="date" value="${escapeHtml(reportDate)}"></label>
+      <label>Ansprechpartner<input data-report-field="contacts" value="${escapeHtml(r.contacts || state.quoteContact || '')}" placeholder="Namen und Funktionen"></label>
+      <label>Terminart<select data-report-field="type">${['Erstvorstellung','Produktvorstellung','Feedbackgespräch','Testauswertung','Preisgespräch','Follow-up'].map(x=>`<option ${x===(r.type||'Produktvorstellung')?'selected':''}>${x}</option>`).join('')}</select></label>
+      <label class="wide">Ausgangssituation / eingesetzte Produkte<textarea data-report-field="current" placeholder="Was nutzt der Kunde aktuell? Welche Herausforderung besteht?">${escapeHtml(r.current || '')}</textarea></label>
+      <label class="wide">Besprochene Produkte<textarea data-report-field="products" placeholder="Produkte aus der Merkliste oder manuell ergänzen">${escapeHtml(r.products || productNames)}</textarea></label>
+      <label class="wide">Feedback und Bedarf<textarea data-report-field="feedback" placeholder="Interesse, Einwände, Anforderungen und Aussagen des Kunden">${escapeHtml(r.feedback || '')}</textarea></label>
+      <label>Muster / Unterlagen<select data-report-field="samples">${['Keine','Unterlagen gesendet','Muster übergeben','Test vereinbart','Angebot angefordert'].map(x=>`<option ${x===(r.samples||'Keine')?'selected':''}>${x}</option>`).join('')}</select></label>
+      <label>Ergebnis<select data-report-field="result">${['Offen','Interesse vorhanden','Testphase','Angebot erforderlich','Kein aktueller Bedarf','Abschluss vorbereitet'].map(x=>`<option ${x===(r.result||'Offen')?'selected':''}>${x}</option>`).join('')}</select></label>
+      <label class="wide">Nächste Schritte<textarea data-report-field="nextSteps" placeholder="Wer macht was bis wann?">${escapeHtml(r.nextSteps || '')}</textarea></label>
+      <label>Follow-up am<input data-report-field="followUp" type="date" value="${escapeHtml(followUp)}"></label>
+      <label>Verantwortlich<input data-report-field="owner" value="${escapeHtml(r.owner || '')}" placeholder="Name / Außendienst"></label>
+      <div class="report-actions wide"><button class="secondary-button" data-action="copy-report">CRM-Text kopieren</button><button class="secondary-button" data-action="export-report">CSV exportieren</button><button class="secondary-button" data-action="save-report">Bericht lokal speichern</button><button class="primary-button compact" data-action="print-report">Drucken / PDF</button></div>
+    </section>
+    <section class="report-sheet"><div class="offer-brand"><img src="public/assets/dr-schumacher-logo.png" alt="Dr. Schumacher"><div><span>Besuchsbericht</span><strong>${escapeHtml(r.customer || state.quoteCustomer || 'Kundentermin')}</strong><small>${new Date(reportDate+'T12:00:00').toLocaleDateString('de-DE')}</small></div></div><pre class="crm-summary">${escapeHtml(summary)}</pre><div class="offer-disclaimer">Interne Gesprächsdokumentation. Produktbezogene Aussagen vor externer Verwendung anhand der aktuellen offiziellen Unterlagen prüfen.</div></section>
+    ${state.savedReports.length ? `<section class="saved-reports no-print"><h2>Lokal gespeicherte Berichte</h2>${state.savedReports.slice(0,5).map((item,i)=>`<button data-load-report="${i}"><strong>${escapeHtml(item.customer || 'Ohne Kundenname')}</strong><small>${escapeHtml(item.date || '')} · ${escapeHtml(item.result || 'Offen')}</small></button>`).join('')}</section>` : ''}
+  </main>`;
+}
+
+
+function dashboardScreen() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const reports = state.savedReports.map((report,index) => ({...report,index,status:report.status || 'Offen'}));
+  const isDone = r => r.status === 'Erledigt';
+  const dateValue = r => r.followUp ? new Date(r.followUp+'T12:00:00') : null;
+  const overdue = reports.filter(r => !isDone(r) && dateValue(r) && dateValue(r) < today);
+  const dueToday = reports.filter(r => !isDone(r) && dateValue(r) && dateValue(r).toDateString() === today.toDateString());
+  const upcoming = reports.filter(r => !isDone(r) && dateValue(r) && dateValue(r) > today).sort((a,b)=>dateValue(a)-dateValue(b));
+  const openWithoutDate = reports.filter(r => !isDone(r) && !dateValue(r));
+  const completed = reports.filter(isDone);
+  const taskCard = (r, tone='') => `<article class="follow-card ${tone}"><div><span class="follow-date">${r.followUp ? new Date(r.followUp+'T12:00:00').toLocaleDateString('de-DE') : 'Kein Termin'}</span><h3>${escapeHtml(r.customer || 'Ohne Kundenname')}</h3><p>${escapeHtml(r.nextSteps || r.feedback || 'Noch keine nächste Aufgabe dokumentiert.')}</p><small>${escapeHtml(r.owner || 'Nicht zugewiesen')} · ${escapeHtml(r.result || 'Offen')}</small></div><div class="follow-actions"><select data-report-status="${r.index}" aria-label="Status"><option ${r.status==='Offen'?'selected':''}>Offen</option><option ${r.status==='In Bearbeitung'?'selected':''}>In Bearbeitung</option><option ${r.status==='Erledigt'?'selected':''}>Erledigt</option></select><button data-open-dashboard-report="${r.index}">Öffnen</button><button class="danger-link" data-delete-report="${r.index}">Löschen</button></div></article>`;
+  const section = (title, items, tone, empty) => `<section class="follow-section"><div class="follow-section-head"><h2>${title}</h2><span>${items.length}</span></div>${items.length ? `<div class="follow-list">${items.map(r=>taskCard(r,tone)).join('')}</div>` : `<p class="follow-empty">${empty}</p>`}</section>`;
+  return `<main class="page dashboard-page"><div class="section-heading"><div><span class="eyebrow">Interne Terminsteuerung</span><h1>Follow-up Dashboard</h1><p>Offene Aufgaben aus lokal gespeicherten Besuchsberichten. Alle Daten bleiben auf diesem Gerät.</p></div><button class="primary-button compact dashboard-new" data-action="new-report">Neuer Bericht</button></div>
+    <section class="dashboard-stats"><div><span>Überfällig</span><strong>${overdue.length}</strong></div><div><span>Heute</span><strong>${dueToday.length}</strong></div><div><span>Geplant</span><strong>${upcoming.length}</strong></div><div><span>Erledigt</span><strong>${completed.length}</strong></div></section>
+    ${section('Überfällige Follow-ups', overdue, 'overdue', 'Keine überfälligen Aufgaben.')}
+    ${section('Heute fällig', dueToday, 'today', 'Heute ist kein Follow-up fällig.')}
+    ${section('Kommende Termine', upcoming, 'upcoming', 'Keine kommenden Follow-ups geplant.')}
+    ${section('Offen ohne Datum', openWithoutDate, 'undated', 'Alle offenen Aufgaben haben ein Datum.')}
+    ${section('Erledigt', completed.slice(0,10), 'done', 'Noch keine Aufgabe als erledigt markiert.')}
+  </main>`;
+}
+
+function updateSavedReportStatus(index, status) {
+  if (!state.savedReports[index]) return;
+  state.savedReports[index] = {...state.savedReports[index], status};
+  localStorage.setItem('savedVisitReports', JSON.stringify(state.savedReports));
+  render();
+}
+
+function deleteSavedReport(index) {
+  if (!state.savedReports[index]) return;
+  if (!confirm('Diesen gespeicherten Besuchsbericht wirklich löschen?')) return;
+  state.savedReports.splice(index, 1);
+  localStorage.setItem('savedVisitReports', JSON.stringify(state.savedReports));
+  render();
+}
+
+function buildCrmSummary(report = state.visitReport) {
+  const date = report.date ? new Date(report.date+'T12:00:00').toLocaleDateString('de-DE') : new Date().toLocaleDateString('de-DE');
+  const parts = [
+    `Besuchsbericht vom ${date}`,
+    `Kunde/Einrichtung: ${report.customer || '-'}`,
+    `Ansprechpartner: ${report.contacts || '-'}`,
+    `Terminart: ${report.type || 'Produktvorstellung'}`,
+    `Ausgangssituation / aktuelle Produkte: ${report.current || '-'}`,
+    `Besprochene Produkte: ${report.products || '-'}`,
+    `Feedback und Bedarf: ${report.feedback || '-'}`,
+    `Muster / Unterlagen: ${report.samples || 'Keine'}`,
+    `Ergebnis: ${report.result || 'Offen'}`,
+    `Nächste Schritte: ${report.nextSteps || '-'}`,
+    `Follow-up: ${report.followUp ? new Date(report.followUp+'T12:00:00').toLocaleDateString('de-DE') : '-'}`,
+    `Verantwortlich: ${report.owner || '-'}`
+  ];
+  return parts.join('\n');
+}
+
+function saveVisitReportField(field, value) {
+  state.visitReport = {...state.visitReport, [field]: value};
+  localStorage.setItem('visitReport', JSON.stringify(state.visitReport));
+}
+
+function saveVisitReport() {
+  const snapshot = {...state.visitReport, savedAt: new Date().toISOString()};
+  state.savedReports = [snapshot, ...state.savedReports].slice(0,25);
+  localStorage.setItem('savedVisitReports', JSON.stringify(state.savedReports));
+  alert('Besuchsbericht wurde lokal gespeichert.');
+  render();
+}
+
+function exportVisitReportCsv() {
+  const r=state.visitReport;
+  const headers=['Datum','Kunde','Ansprechpartner','Terminart','Ausgangssituation','Besprochene Produkte','Feedback','Muster/Unterlagen','Ergebnis','Nächste Schritte','Follow-up','Verantwortlich'];
+  const values=[r.date||'',r.customer||'',r.contacts||'',r.type||'',r.current||'',r.products||'',r.feedback||'',r.samples||'',r.result||'',r.nextSteps||'',r.followUp||'',r.owner||''];
+  const csv='\ufeff'+[headers,values].map(row=>row.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(';')).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='besuchsbericht-'+(r.customer||'kunde').replace(/[^a-z0-9äöüß-]+/gi,'-').toLowerCase()+'.csv'; a.click(); URL.revokeObjectURL(a.href);
+}
+
 function saveQuoteItem(id, field, value) {
   const product = PRODUCTS.find(p => p.id === id);
   if (!product) return;
@@ -369,7 +485,7 @@ function settingsScreen() {
   return `<main class="page settings-page"><div class="section-heading"><div><span class="eyebrow">Verwaltung</span><h1>Einstellungen</h1></div></div>
     <section class="settings-card"><button data-action="customer-mode"><span><strong>Kundengespräch-Modus</strong><small>${state.customerMode?'Aktiv – Preise sind verborgen':'Inaktiv – Preise sind sichtbar'}</small></span><b>${state.customerMode?'✓':'›'}</b></button><button data-action="prices"><span><strong>Preisliste wechseln</strong><small>Aktuell: ${state.priceList}</small></span><b>›</b></button><label class="file-row"><span><strong>Excel-Preise importieren</strong><small>.xlsx, .xls oder .csv – bleibt lokal</small></span><b>Datei auswählen</b><input id="excel" type="file" accept=".xlsx,.xls,.csv"></label><div id="importStatus" class="import-status"><strong>${metaText}</strong><br>${Object.keys(state.prices).length} Artikelnummern lokal gespeichert</div><button data-action="export-prices"><span><strong>Preisstand sichern</strong><small>Lokale JSON-Sicherung herunterladen</small></span><b>↓</b></button><button data-action="clear-prices"><span><strong>Lokale Preise löschen</strong><small>Entfernt nur die Daten auf diesem Gerät</small></span><b>×</b></button></section>
     <section class="settings-card"><a href="preisvorlage.csv" download><span><strong>Excel-Vorlage herunterladen</strong><small>Vorlage für UVP und FH 1 bis FH 5</small></span><b>↓</b></a><a href="${OFFICIAL.home}" target="_blank"><span><strong>Dr.-Schumacher-Website</strong><small>Öffnet die offizielle Website</small></span><b>↗</b></a></section>
-    <p class="version">Interner Produktberater · Präsentationsversion 1.7</p>
+    <p class="version">Interner Produktberater · Präsentationsversion 1.8</p>
   </main>`;
 }
 
@@ -409,7 +525,7 @@ function bind() {
   $('[data-action="back"]')?.addEventListener('click', () => { state.screen = state.screen==='detail' ? 'products' : 'menu'; render(); });
   $('[data-action="clear-prices"]')?.addEventListener('click', () => { state.prices={}; state.importMeta={}; localStorage.removeItem('prices'); localStorage.removeItem('priceImportMeta'); render(); });
   document.querySelectorAll('[data-action="customer-mode"]').forEach(button => button.onclick = () => { state.customerMode=!state.customerMode; sessionStorage.setItem('customerMode', String(state.customerMode)); render(); });
-  document.querySelectorAll('[data-category]').forEach(button => button.onclick = () => { const key=button.dataset.category; if(['advisor','recent','compare','lists','competition','talk','offer'].includes(key)){state.screen=key; render(); return;} state.category=key; state.screen='products'; state.query=''; state.spectrum='all'; render(); });
+  document.querySelectorAll('[data-category]').forEach(button => button.onclick = () => { const key=button.dataset.category; if(['advisor','recent','compare','lists','competition','talk','offer','report','dashboard'].includes(key)){state.screen=key; render(); return;} state.category=key; state.screen='products'; state.query=''; state.spectrum='all'; render(); });
   document.querySelectorAll('[data-spectrum]').forEach(button => button.onclick = () => { state.spectrum=button.dataset.spectrum; render(); });
   document.querySelectorAll('[data-product]').forEach(row => row.onclick = event => { if (event.target.closest('[data-favorite]')) return; state.selected=row.dataset.product; state.size=''; state.recent=[state.selected,...state.recent.filter(x=>x!==state.selected)].slice(0,8); localStorage.setItem('recentProducts', JSON.stringify(state.recent)); state.screen='detail'; render(); });
   document.querySelectorAll('[data-favorite]').forEach(button => button.onclick = event => { event.stopPropagation(); toggleFavorite(button.dataset.favorite); });
@@ -430,6 +546,16 @@ function bind() {
   $('[data-action="copy-talk"]')?.addEventListener('click', async () => { const text=buildTalkText(); try{await navigator.clipboard.writeText(text);alert('Gesprächsleitfaden kopiert.')}catch{alert(text)} });
   $('[data-action="print-offer"]')?.addEventListener('click', () => window.print());
   $('[data-action="export-offer"]')?.addEventListener('click', exportOfferCsv);
+  document.querySelectorAll('[data-report-field]').forEach(input => { const handler=()=>{saveVisitReportField(input.dataset.reportField,input.value); if(input.tagName==='SELECT'||input.type==='date') render();}; input.addEventListener(input.tagName==='SELECT'||input.type==='date'?'change':'input',handler); });
+  $('[data-action="copy-report"]')?.addEventListener('click', async () => { const text=buildCrmSummary(); try{await navigator.clipboard.writeText(text);alert('CRM-Text wurde kopiert.')}catch{alert(text)} });
+  $('[data-action="export-report"]')?.addEventListener('click', exportVisitReportCsv);
+  $('[data-action="save-report"]')?.addEventListener('click', saveVisitReport);
+  $('[data-action="print-report"]')?.addEventListener('click', () => window.print());
+  document.querySelectorAll('[data-load-report]').forEach(button => button.onclick=()=>{state.visitReport={...state.savedReports[Number(button.dataset.loadReport)]};localStorage.setItem('visitReport',JSON.stringify(state.visitReport));render();});
+  document.querySelectorAll('[data-report-status]').forEach(select => select.onchange = () => updateSavedReportStatus(Number(select.dataset.reportStatus), select.value));
+  document.querySelectorAll('[data-open-dashboard-report]').forEach(button => button.onclick = () => { state.visitReport={...state.savedReports[Number(button.dataset.openDashboardReport)]}; localStorage.setItem('visitReport',JSON.stringify(state.visitReport)); state.screen='report'; render(); });
+  document.querySelectorAll('[data-delete-report]').forEach(button => button.onclick = () => deleteSavedReport(Number(button.dataset.deleteReport)));
+  $('[data-action="new-report"]')?.addEventListener('click', () => { state.visitReport={date:new Date().toISOString().slice(0,10),type:'Produktvorstellung',result:'Offen'}; localStorage.setItem('visitReport',JSON.stringify(state.visitReport)); state.screen='report'; render(); });
   document.querySelectorAll('[data-quote-item]').forEach(input => input.onchange = () => { saveQuoteItem(input.dataset.quoteItem, input.dataset.field, input.value); render(); });
   $('[data-action="export-prices"]')?.addEventListener('click', exportPrices);
   $('#quoteCustomer')?.addEventListener('input', e => saveQuoteField('quoteCustomer', e.target.value));

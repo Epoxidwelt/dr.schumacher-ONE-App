@@ -101,3 +101,23 @@ Wichtig: Wettbewerbszuordnungen und Gesprächsvorschläge sind interne Orientier
 - Kalkulationsdaten bleiben ausschließlich lokal im Browser
 
 Hinweis: Der erzeugte Entwurf ist unverbindlich und muss vor dem Versand kaufmännisch geprüft werden.
+
+## Neu in Version 1.9
+
+- Besuchsbericht für Kundentermine
+- Felder für Ansprechpartner, Ausgangssituation, Feedback, Muster, Ergebnis und nächste Schritte
+- Follow-up-Datum und verantwortliche Person
+- automatisch erzeugte CRM-Zusammenfassung zum Kopieren
+- CSV-Export und Druck-/PDF-Ansicht
+- bis zu 25 Berichte lokal auf dem Gerät speicherbar
+
+Alle Besuchsdaten bleiben lokal im Browser. Für eine unternehmensweite Nutzung sollte später eine freigegebene CRM-Schnittstelle ergänzt werden.
+
+
+## Neu in Version 1.9
+
+- Follow-up-Dashboard aus lokal gespeicherten Besuchsberichten
+- Kennzahlen für überfällige, heute fällige, kommende und erledigte Aufgaben
+- Aufgabenstatus: Offen, In Bearbeitung oder Erledigt
+- Berichte direkt aus dem Dashboard öffnen oder löschen
+- Neue Besuchsberichte direkt vom Dashboard anlegen
