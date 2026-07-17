@@ -33,7 +33,8 @@ const state = {
   favorites: JSON.parse(localStorage.getItem('favorites') || '[]'),
   size: '',
   recent: JSON.parse(localStorage.getItem('recentProducts') || '[]'),
-  advisor: {category:'', spectrum:'', alcohol:'', need:''}
+  advisor: {category:'', spectrum:'', alcohol:'', need:''},
+  compareIds: JSON.parse(localStorage.getItem('compareIds') || '[]')
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -53,6 +54,7 @@ function icon(name) {
     star:'<svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"/></svg>',
     settings:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1A8 8 0 0 0 15 6l-.3-2.6h-4L10.4 6a8 8 0 0 0-1.6 1L6.5 6 4.5 9.5 6.6 11a7 7 0 0 0 0 2l-2.1 1.5 2 3.4 2.4-1A8 8 0 0 0 10.5 18l.3 2.6h4L15.1 18a8 8 0 0 0 1.6-1l2.3 1 2-3.4-2.1-1.5c.1-.4.1-.7.1-1.1Z"/></svg>',
     advisor:'<svg viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 4V5Z"/><path d="M8 9h8M8 13h5"/></svg>',
+    compare:'<svg viewBox="0 0 24 24"><path d="M7 4v16M17 4v16M3 8h8M13 16h8"/></svg>',
     recent:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
   };
   return icons[name] || '';
@@ -88,6 +90,7 @@ function render() {
   if (state.screen === 'settings') html = header(true) + settingsScreen() + bottomNav('settings');
   if (state.screen === 'advisor') html = header(true) + advisorScreen() + bottomNav('home');
   if (state.screen === 'recent') html = header(true) + recentScreen() + bottomNav('home');
+  if (state.screen === 'compare') html = header(true) + compareScreen() + bottomNav('home');
   app.innerHTML = html;
   bind();
 }
@@ -116,6 +119,7 @@ function menuScreen() {
     ['all','Produktübersicht','Alle Produkte im Überblick'],
     ['downloads','Downloads','Aktuelle Unterlagen online'],
     ['advisor','Produktberater','In wenigen Fragen zum passenden Produkt'],
+    ['compare','Produktvergleich','Bis zu drei Produkte direkt vergleichen'],
     ['recent','Zuletzt angesehen','Schnell zurück zu geöffneten Produkten']
   ];
   return `<main class="page menu-page">
@@ -214,6 +218,27 @@ function recentScreen() {
   return `<main class="page products-page"><div class="section-heading"><div><span class="eyebrow">Schnellzugriff</span><h1>Zuletzt angesehen</h1></div><span class="result-count">${list.length}</span></div><div class="product-list">${list.map(productCard).join('') || '<div class="empty-state"><h2>Noch kein Verlauf</h2><p>Geöffnete Produkte erscheinen automatisch hier.</p></div>'}</div></main>`;
 }
 
+function compareScreen() {
+  const selected = state.compareIds.map(id => PRODUCTS.find(p => p.id === id)).filter(Boolean);
+  return `<main class="page compare-page">
+    <div class="section-heading"><div><span class="eyebrow">Gesprächshilfe</span><h1>Produktvergleich</h1><p>Wählen Sie bis zu drei Produkte. Die Übersicht hilft bei der Präsentation, ersetzt aber keine aktuelle Produktinformation.</p></div><span class="result-count">${selected.length}/3</span></div>
+    <section class="compare-picker"><h2>Produkte auswählen</h2><div class="compare-product-grid">${PRODUCTS.map(p => `<button class="compare-choice ${state.compareIds.includes(p.id)?'active':''}" data-compare="${p.id}"><span style="--dot:${p.color}"></span><div><strong>${p.name}</strong><small>${p.kind}</small></div><b>${state.compareIds.includes(p.id)?'✓':'+'}</b></button>`).join('')}</div></section>
+    ${selected.length ? `<section class="comparison-wrap"><div class="comparison-grid">${selected.map(compareColumn).join('')}</div></section>
+    <section class="pitch-card"><span class="eyebrow">Formulierungsvorschlag</span><h2>So können Sie den Vergleich erklären</h2><p>${comparisonPitch(selected)}</p><button class="secondary-button" data-action="copy-pitch">Text kopieren</button></section>` : '<div class="empty-state"><h2>Noch kein Produkt ausgewählt</h2><p>Tippen Sie oben auf bis zu drei Produkte.</p></div>'}
+  </main>`;
+}
+
+function compareColumn(p) {
+  const price = resolvePrice(p);
+  return `<article class="compare-column"><div class="compare-head" style="--product-color:${p.color}"><span>${p.category==='hands'?'✋':p.category==='surface'?'▦':p.category==='instruments'?'✂':'▣'}</span><h2>${p.name}</h2><small>${p.kind}</small></div><div class="compare-line"><b>Wirkspektrum</b><div class="badges">${p.spectrum.map(spectrumBadge).join('') || '<span>–</span>'}</div></div><div class="compare-line"><b>Stärken</b><ul>${p.facts.slice(0,3).map(f=>`<li>${f}</li>`).join('')}</ul></div><div class="compare-line"><b>Gebinde</b><span>${p.sizes.join(', ')}</span></div><div class="compare-line"><b>${state.customerMode?'Preis':'Preis '+state.priceList}</b><strong>${state.customerMode?'verborgen':money(price)}</strong></div><button class="primary-button compact" data-product="${p.id}">Produkt öffnen</button></article>`;
+}
+
+function comparisonPitch(list) {
+  if (list.length === 1) return `${list[0].name} eignet sich besonders, wenn ${list[0].facts[0].toLowerCase()}. Die verbindlichen Einsatzbedingungen prüfen wir direkt in der aktuellen Produktinformation.`;
+  const names = list.map(p=>p.name).join(', ');
+  return `Wir vergleichen ${names}. Entscheidend sind Einsatzbereich, benötigtes Wirkspektrum, Materialverträglichkeit und gewünschte Gebindeform. Anschließend prüfen wir die verbindlichen Einwirkzeiten und Freigaben in den aktuellen offiziellen Unterlagen.`;
+}
+
 function favoritesScreen() {
   const list = PRODUCTS.filter(p => state.favorites.includes(p.id));
   return `<main class="page products-page"><div class="section-heading"><div><span class="eyebrow">Persönliche Auswahl</span><h1>Favoriten</h1></div><span class="result-count">${list.length}</span></div><div class="product-list">${list.map(productCard).join('') || '<div class="empty-state"><h2>Noch keine Favoriten</h2><p>Tippen Sie bei einem Produkt auf den Stern.</p></div>'}</div></main>`;
@@ -223,7 +248,7 @@ function settingsScreen() {
   return `<main class="page settings-page"><div class="section-heading"><div><span class="eyebrow">Verwaltung</span><h1>Einstellungen</h1></div></div>
     <section class="settings-card"><button data-action="customer-mode"><span><strong>Kundengespräch-Modus</strong><small>${state.customerMode?'Aktiv – Preise sind verborgen':'Inaktiv – Preise sind sichtbar'}</small></span><b>${state.customerMode?'✓':'›'}</b></button><button data-action="prices"><span><strong>Preisliste wechseln</strong><small>Aktuell: ${state.priceList}</small></span><b>›</b></button><label class="file-row"><span><strong>Excel-Preise importieren</strong><small>.xlsx, .xls oder .csv – bleibt lokal</small></span><b>Datei auswählen</b><input id="excel" type="file" accept=".xlsx,.xls,.csv"></label><div id="importStatus" class="import-status">${Object.keys(state.prices).length ? `${Object.keys(state.prices).length} Preiszeilen gespeichert` : 'Noch keine Preisdatei importiert'}</div><button data-action="clear-prices"><span><strong>Lokale Preise löschen</strong><small>Entfernt nur die Daten auf diesem Gerät</small></span><b>×</b></button></section>
     <section class="settings-card"><a href="preisvorlage.csv" download><span><strong>Excel-Vorlage herunterladen</strong><small>Vorlage für UVP und FH 1 bis FH 5</small></span><b>↓</b></a><a href="${OFFICIAL.home}" target="_blank"><span><strong>Dr.-Schumacher-Website</strong><small>Öffnet die offizielle Website</small></span><b>↗</b></a></section>
-    <p class="version">Interner Produktberater · Präsentationsversion 1.3</p>
+    <p class="version">Interner Produktberater · Präsentationsversion 1.4</p>
   </main>`;
 }
 
@@ -263,7 +288,7 @@ function bind() {
   $('[data-action="back"]')?.addEventListener('click', () => { state.screen = state.screen==='detail' ? 'products' : 'menu'; render(); });
   $('[data-action="clear-prices"]')?.addEventListener('click', () => { state.prices={}; localStorage.removeItem('prices'); render(); });
   document.querySelectorAll('[data-action="customer-mode"]').forEach(button => button.onclick = () => { state.customerMode=!state.customerMode; sessionStorage.setItem('customerMode', String(state.customerMode)); render(); });
-  document.querySelectorAll('[data-category]').forEach(button => button.onclick = () => { const key=button.dataset.category; if(key==='advisor'){state.screen='advisor'; render(); return;} if(key==='recent'){state.screen='recent'; render(); return;} state.category=key; state.screen='products'; state.query=''; state.spectrum='all'; render(); });
+  document.querySelectorAll('[data-category]').forEach(button => button.onclick = () => { const key=button.dataset.category; if(key==='advisor'){state.screen='advisor'; render(); return;} if(key==='recent'){state.screen='recent'; render(); return;} if(key==='compare'){state.screen='compare'; render(); return;} state.category=key; state.screen='products'; state.query=''; state.spectrum='all'; render(); });
   document.querySelectorAll('[data-spectrum]').forEach(button => button.onclick = () => { state.spectrum=button.dataset.spectrum; render(); });
   document.querySelectorAll('[data-product]').forEach(row => row.onclick = event => { if (event.target.closest('[data-favorite]')) return; state.selected=row.dataset.product; state.size=''; state.recent=[state.selected,...state.recent.filter(x=>x!==state.selected)].slice(0,8); localStorage.setItem('recentProducts', JSON.stringify(state.recent)); state.screen='detail'; render(); });
   document.querySelectorAll('[data-favorite]').forEach(button => button.onclick = event => { event.stopPropagation(); toggleFavorite(button.dataset.favorite); });
@@ -272,6 +297,8 @@ function bind() {
   $('#excel')?.addEventListener('change', importExcel);
   document.querySelectorAll('[data-advisor]').forEach(button => button.onclick = () => { state.advisor[button.dataset.advisor]=button.dataset.value; render(); });
   $('[data-action="reset-advisor"]')?.addEventListener('click', () => { state.advisor={category:'',spectrum:'',alcohol:'',need:''}; render(); });
+  document.querySelectorAll('[data-compare]').forEach(button => button.onclick = () => toggleCompare(button.dataset.compare));
+  $('[data-action="copy-pitch"]')?.addEventListener('click', async () => { const text=comparisonPitch(state.compareIds.map(id=>PRODUCTS.find(p=>p.id===id)).filter(Boolean)); try { await navigator.clipboard.writeText(text); alert('Text wurde kopiert.'); } catch { alert(text); } });
   document.querySelectorAll('[data-nav]').forEach(button => button.onclick = () => {
     const nav = button.dataset.nav;
     if (nav==='home') state.screen='menu';
@@ -280,6 +307,14 @@ function bind() {
     if (nav==='settings') state.screen='settings';
     render();
   });
+}
+
+function toggleCompare(id) {
+  if (state.compareIds.includes(id)) state.compareIds = state.compareIds.filter(x => x !== id);
+  else if (state.compareIds.length < 3) state.compareIds = [...state.compareIds, id];
+  else { alert('Es können maximal drei Produkte verglichen werden.'); return; }
+  localStorage.setItem('compareIds', JSON.stringify(state.compareIds));
+  render();
 }
 
 function toggleFavorite(id) {

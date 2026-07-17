@@ -54,7 +54,7 @@ Hinweis: Die Produktdaten dieser Präsentationsversion dienen als funktionales U
 - Excel-Import unterstützt mehrere Gebinde je Artikelnummer.
 - Importprüfung meldet fehlende Artikelnummern, leere Preiszeilen, Dubletten und unbekannte Artikel.
 
-## Neu in Version 1.3
+## Neu in Version 1.4
 
 - Geführter Produktberater mit vier einfachen Fragen
 - Produktempfehlungen auf Basis der hinterlegten Produkteigenschaften
@@ -63,3 +63,11 @@ Hinweis: Die Produktdaten dieser Präsentationsversion dienen als funktionales U
 - Keine Cloud-Speicherung der Preislisten oder des Verlaufs
 
 Hinweis: Empfehlungen sind Orientierungshilfen. Verbindlich sind immer die aktuellen offiziellen Produktinformationen und Sicherheitsunterlagen.
+
+
+## Neu in Version 1.4
+
+- Produktvergleich für bis zu drei Produkte
+- Vergleich von Wirkspektrum, Stärken, Gebinden und aktivem Preis
+- automatisch erzeugter Formulierungsvorschlag für das Kundengespräch
+- Auswahl bleibt lokal auf dem Gerät gespeichert
