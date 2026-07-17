@@ -42,6 +42,8 @@ const state = {
   quoteCustomer: localStorage.getItem('quoteCustomer') || '',
   quoteContact: localStorage.getItem('quoteContact') || '',
   quoteNote: localStorage.getItem('quoteNote') || '',
+  quoteValidUntil: localStorage.getItem('quoteValidUntil') || '',
+  quoteItems: JSON.parse(localStorage.getItem('quoteItems') || '{}'),
   importMeta: JSON.parse(localStorage.getItem('priceImportMeta') || '{}')
 };
 
@@ -297,18 +299,63 @@ function buildTalkText(){const p=PRODUCTS.find(x=>x.id===state.talkProduct)||PRO
 function offerScreen() {
   const ids = state.lists[state.activeList] || [];
   const products = ids.map(id => PRODUCTS.find(p => p.id === id)).filter(Boolean);
+  let subtotal = 0;
   const rows = products.map(p => {
-    const size = p.sizes[0] || '';
-    const price = resolvePrice(p, size);
-    return `<tr><td><strong>${p.name}</strong><small>${p.kind}<br>Art.-Nr. ${p.sku}</small></td><td>${size}</td><td>${p.spectrum.join(', ') || '–'}</td><td class="offer-price">${state.customerMode ? 'ausgeblendet' : money(price)}</td></tr>`;
+    const saved = state.quoteItems[p.id] || {};
+    const size = saved.size && p.sizes.includes(saved.size) ? saved.size : (p.sizes[0] || '');
+    const quantity = Math.max(1, Number(saved.quantity) || 1);
+    const discount = Math.min(100, Math.max(0, Number(saved.discount) || 0));
+    const rawPrice = resolvePrice(p, size);
+    const unitPrice = rawPrice === '' || rawPrice == null ? null : Number(rawPrice);
+    const lineTotal = unitPrice == null ? null : unitPrice * quantity * (1 - discount / 100);
+    if (lineTotal != null) subtotal += lineTotal;
+    return `<tr>
+      <td><strong>${p.name}</strong><small>${p.kind}<br>Art.-Nr. ${p.sku}</small></td>
+      <td><select class="offer-input" data-quote-item="${p.id}" data-field="size">${p.sizes.map(x=>`<option ${x===size?'selected':''}>${x}</option>`).join('')}</select></td>
+      <td><input class="offer-input quantity" data-quote-item="${p.id}" data-field="quantity" type="number" min="1" step="1" value="${quantity}"></td>
+      <td><input class="offer-input discount" data-quote-item="${p.id}" data-field="discount" type="number" min="0" max="100" step="0.1" value="${discount}"><span class="unit">%</span></td>
+      <td class="offer-price">${state.customerMode ? 'ausgeblendet' : money(unitPrice)}</td>
+      <td class="offer-price line-total">${state.customerMode ? 'ausgeblendet' : money(lineTotal)}</td>
+    </tr>`;
   }).join('');
-  return `<main class="page offer-page"><div class="section-heading no-print"><div><span class="eyebrow">Kundentermin</span><h1>Kundenübersicht</h1><p>Erstellt aus der aktiven Merkliste „${escapeHtml(state.activeList)}“.</p></div></div>
-    <section class="offer-config no-print"><label>Kunde / Einrichtung<input id="quoteCustomer" value="${escapeHtml(state.quoteCustomer)}" placeholder="z. B. Klinikum Dortmund"></label><label>Ansprechpartner<input id="quoteContact" value="${escapeHtml(state.quoteContact)}" placeholder="Name oder Funktion"></label><label class="wide">Notiz<textarea id="quoteNote" placeholder="Ziel, nächste Schritte oder besondere Anforderungen">${escapeHtml(state.quoteNote)}</textarea></label><div class="offer-actions wide"><button class="secondary-button" data-action="customer-mode">${state.customerMode?'Preise wieder anzeigen':'Preise für Kunden ausblenden'}</button><button class="primary-button compact" data-action="print-offer">Drucken / als PDF speichern</button></div></section>
-    <section class="offer-sheet"><div class="offer-brand"><img src="public/assets/dr-schumacher-logo.png" alt="Dr. Schumacher"><div><span>Produktübersicht</span><strong>${escapeHtml(state.quoteCustomer || 'Kundentermin')}</strong><small>${escapeHtml(state.quoteContact || '')}</small></div></div><div class="offer-meta"><span>Merkliste: ${escapeHtml(state.activeList)}</span><span>Preisbasis: ${state.customerMode?'ohne Preise':escapeHtml(state.priceList)}</span><span>Stand: ${new Date().toLocaleDateString('de-DE')}</span></div>
-      ${products.length ? `<table class="offer-table"><thead><tr><th>Produkt</th><th>Gebinde</th><th>Wirkspektrum</th><th>${state.customerMode?'Preis':'Preis '+escapeHtml(state.priceList)}</th></tr></thead><tbody>${rows}</tbody></table>` : '<div class="empty-state"><h2>Die Merkliste ist leer</h2><p>Fügen Sie zuerst Produkte einer Merkliste hinzu.</p></div>'}
+  const vat = subtotal * 0.19;
+  const total = subtotal + vat;
+  const validUntil = state.quoteValidUntil || new Date(Date.now()+14*86400000).toISOString().slice(0,10);
+  return `<main class="page offer-page"><div class="section-heading no-print"><div><span class="eyebrow">Angebotsentwurf</span><h1>Kundenübersicht & Kalkulation</h1><p>Erstellt aus der aktiven Merkliste „${escapeHtml(state.activeList)}“.</p></div></div>
+    <section class="offer-config no-print"><label>Kunde / Einrichtung<input id="quoteCustomer" value="${escapeHtml(state.quoteCustomer)}" placeholder="z. B. Klinikum Dortmund"></label><label>Ansprechpartner<input id="quoteContact" value="${escapeHtml(state.quoteContact)}" placeholder="Name oder Funktion"></label><label>Gültig bis<input id="quoteValidUntil" type="date" value="${escapeHtml(validUntil)}"></label><label class="wide">Notiz<textarea id="quoteNote" placeholder="Ziel, nächste Schritte oder besondere Anforderungen">${escapeHtml(state.quoteNote)}</textarea></label><div class="offer-actions wide"><button class="secondary-button" data-action="customer-mode">${state.customerMode?'Preise wieder anzeigen':'Preise für Kunden ausblenden'}</button><button class="secondary-button" data-action="export-offer">CSV für Innendienst</button><button class="primary-button compact" data-action="print-offer">Drucken / als PDF speichern</button></div></section>
+    <section class="offer-sheet"><div class="offer-brand"><img src="public/assets/dr-schumacher-logo.png" alt="Dr. Schumacher"><div><span>Angebotsentwurf</span><strong>${escapeHtml(state.quoteCustomer || 'Kundentermin')}</strong><small>${escapeHtml(state.quoteContact || '')}</small></div></div><div class="offer-meta"><span>Merkliste: ${escapeHtml(state.activeList)}</span><span>Preisbasis: ${state.customerMode?'ohne Preise':escapeHtml(state.priceList)}</span><span>Gültig bis: ${new Date(validUntil+'T12:00:00').toLocaleDateString('de-DE')}</span><span>Stand: ${new Date().toLocaleDateString('de-DE')}</span></div>
+      ${products.length ? `<div class="offer-table-wrap"><table class="offer-table offer-calculation"><thead><tr><th>Produkt</th><th>Gebinde</th><th>Menge</th><th>Rabatt</th><th>Einzelpreis</th><th>Gesamt</th></tr></thead><tbody>${rows}</tbody></table></div>${state.customerMode?'':`<div class="offer-totals"><div><span>Zwischensumme</span><strong>${money(subtotal)}</strong></div><div><span>zzgl. 19 % MwSt.</span><strong>${money(vat)}</strong></div><div class="grand-total"><span>Gesamtsumme</span><strong>${money(total)}</strong></div></div>`}` : '<div class="empty-state"><h2>Die Merkliste ist leer</h2><p>Fügen Sie zuerst Produkte einer Merkliste hinzu.</p></div>'}
       ${state.quoteNote ? `<div class="offer-note"><strong>Notiz</strong><p>${escapeHtml(state.quoteNote)}</p></div>` : ''}
-      <div class="offer-disclaimer">Interne Gesprächsunterlage. Verbindliche Anwendung, Einwirkzeiten, Materialverträglichkeit und Sicherheit ausschließlich anhand der aktuellen offiziellen Produktinformationen prüfen.</div>
+      <div class="offer-disclaimer">Unverbindlicher interner Angebotsentwurf. Preise, Steuern, Lieferfähigkeit und Konditionen sind vor Versand durch den Innendienst zu prüfen. Verbindliche Anwendung, Einwirkzeiten, Materialverträglichkeit und Sicherheit ausschließlich anhand der aktuellen offiziellen Produktinformationen prüfen.</div>
     </section></main>`;
+}
+
+function saveQuoteItem(id, field, value) {
+  const product = PRODUCTS.find(p => p.id === id);
+  if (!product) return;
+  const current = state.quoteItems[id] || {};
+  if (field === 'quantity') value = Math.max(1, Math.round(Number(value) || 1));
+  if (field === 'discount') value = Math.min(100, Math.max(0, Number(value) || 0));
+  if (field === 'size' && !product.sizes.includes(value)) value = product.sizes[0] || '';
+  state.quoteItems[id] = {...current, [field]: value};
+  localStorage.setItem('quoteItems', JSON.stringify(state.quoteItems));
+}
+
+function exportOfferCsv() {
+  const ids = state.lists[state.activeList] || [];
+  const lines = [['Kunde','Ansprechpartner','Preisliste','Artikelnummer','Produkt','Gebinde','Menge','Rabatt %','Einzelpreis','Gesamtpreis']];
+  ids.map(id=>PRODUCTS.find(p=>p.id===id)).filter(Boolean).forEach(p => {
+    const saved=state.quoteItems[p.id]||{};
+    const size=saved.size&&p.sizes.includes(saved.size)?saved.size:(p.sizes[0]||'');
+    const qty=Math.max(1,Number(saved.quantity)||1);
+    const discount=Math.min(100,Math.max(0,Number(saved.discount)||0));
+    const raw=resolvePrice(p,size); const unit=raw===''||raw==null?'':Number(raw);
+    const total=unit===''?'':unit*qty*(1-discount/100);
+    lines.push([state.quoteCustomer,state.quoteContact,state.priceList,p.sku,p.name,size,qty,discount,unit,total]);
+  });
+  const csv='\ufeff'+lines.map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='angebotsentwurf-'+(state.quoteCustomer||'kunde').replace(/[^a-z0-9äöüß-]+/gi,'-').toLowerCase()+'.csv'; a.click(); URL.revokeObjectURL(a.href);
 }
 
 function favoritesScreen() {
@@ -322,7 +369,7 @@ function settingsScreen() {
   return `<main class="page settings-page"><div class="section-heading"><div><span class="eyebrow">Verwaltung</span><h1>Einstellungen</h1></div></div>
     <section class="settings-card"><button data-action="customer-mode"><span><strong>Kundengespräch-Modus</strong><small>${state.customerMode?'Aktiv – Preise sind verborgen':'Inaktiv – Preise sind sichtbar'}</small></span><b>${state.customerMode?'✓':'›'}</b></button><button data-action="prices"><span><strong>Preisliste wechseln</strong><small>Aktuell: ${state.priceList}</small></span><b>›</b></button><label class="file-row"><span><strong>Excel-Preise importieren</strong><small>.xlsx, .xls oder .csv – bleibt lokal</small></span><b>Datei auswählen</b><input id="excel" type="file" accept=".xlsx,.xls,.csv"></label><div id="importStatus" class="import-status"><strong>${metaText}</strong><br>${Object.keys(state.prices).length} Artikelnummern lokal gespeichert</div><button data-action="export-prices"><span><strong>Preisstand sichern</strong><small>Lokale JSON-Sicherung herunterladen</small></span><b>↓</b></button><button data-action="clear-prices"><span><strong>Lokale Preise löschen</strong><small>Entfernt nur die Daten auf diesem Gerät</small></span><b>×</b></button></section>
     <section class="settings-card"><a href="preisvorlage.csv" download><span><strong>Excel-Vorlage herunterladen</strong><small>Vorlage für UVP und FH 1 bis FH 5</small></span><b>↓</b></a><a href="${OFFICIAL.home}" target="_blank"><span><strong>Dr.-Schumacher-Website</strong><small>Öffnet die offizielle Website</small></span><b>↗</b></a></section>
-    <p class="version">Interner Produktberater · Präsentationsversion 1.6</p>
+    <p class="version">Interner Produktberater · Präsentationsversion 1.7</p>
   </main>`;
 }
 
@@ -382,10 +429,13 @@ function bind() {
   $('#talkSituation')?.addEventListener('change', e => { state.talkSituation=e.target.value; render(); });
   $('[data-action="copy-talk"]')?.addEventListener('click', async () => { const text=buildTalkText(); try{await navigator.clipboard.writeText(text);alert('Gesprächsleitfaden kopiert.')}catch{alert(text)} });
   $('[data-action="print-offer"]')?.addEventListener('click', () => window.print());
+  $('[data-action="export-offer"]')?.addEventListener('click', exportOfferCsv);
+  document.querySelectorAll('[data-quote-item]').forEach(input => input.onchange = () => { saveQuoteItem(input.dataset.quoteItem, input.dataset.field, input.value); render(); });
   $('[data-action="export-prices"]')?.addEventListener('click', exportPrices);
   $('#quoteCustomer')?.addEventListener('input', e => saveQuoteField('quoteCustomer', e.target.value));
   $('#quoteContact')?.addEventListener('input', e => saveQuoteField('quoteContact', e.target.value));
   $('#quoteNote')?.addEventListener('input', e => saveQuoteField('quoteNote', e.target.value));
+  $('#quoteValidUntil')?.addEventListener('change', e => saveQuoteField('quoteValidUntil', e.target.value));
   document.querySelectorAll('[data-nav]').forEach(button => button.onclick = () => {
     const nav = button.dataset.nav;
     if (nav==='home') state.screen='menu';

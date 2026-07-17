@@ -90,3 +90,14 @@ Wichtig: Wettbewerbszuordnungen und Gesprächsvorschläge sind interne Orientier
 - Kundenansicht mit ausgeblendeten Preisen
 - Anzeige von Dateiname, Importzeit und Zeilenzahl der zuletzt importierten Preisliste
 - lokale JSON-Sicherung des Preisstands
+
+## Neu in Version 1.7
+
+- Angebotsentwurf mit Gebindeauswahl je Produkt
+- Mengen- und Rabattfelder mit automatischer Summenberechnung
+- Netto-, Mehrwertsteuer- und Bruttosumme
+- Gültigkeitsdatum für den Angebotsentwurf
+- CSV-Export zur Übergabe an den Innendienst
+- Kalkulationsdaten bleiben ausschließlich lokal im Browser
+
+Hinweis: Der erzeugte Entwurf ist unverbindlich und muss vor dem Versand kaufmännisch geprüft werden.
