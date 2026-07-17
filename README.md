@@ -1,29 +1,47 @@
-# Dr. Schumacher Produktberater - MVP
+# Dr. Schumacher Produktberater – Präsentationsversion
 
-Interne, installierbare Web-App ohne eigenen Cloud-Speicher.
+Eine installierbare, responsive Web-App für die interne Produktberatung.
 
-## Start
+## Funktionen
 
-Da Service Worker nur über HTTP/HTTPS funktionieren:
+- Preislistenwahl vor dem Start: UVP oder FH 1–FH 5
+- Produktbereiche Fläche, Hände & Haut, Instrumente und Applikation
+- Schnellsuche und Wirkspektrum-Filter
+- Produktdetailansichten mit Gebindeauswahl
+- Favoriten
+- Excel-/CSV-Preisimport ausschließlich lokal im Browser
+- Direkte Verlinkung zu offiziellen aktuellen Unterlagen von Dr. Schumacher
+- Responsive Darstellung auf Smartphone, Tablet und Desktop
+- PWA-Grundgerüst
+
+## Lokal starten
 
 ```bash
 python3 -m http.server 8080
 ```
 
-Dann `http://localhost:8080` öffnen.
+Danach `http://localhost:8080` öffnen.
 
-## Excel-Import
+## GitHub + Render
 
-Erste Tabellenzeile:
+1. Ordner in ein privates GitHub-Repository hochladen.
+2. Bei Render eine **Static Site** erstellen.
+3. Build Command leer lassen.
+4. Publish Directory: `.`
+5. Excel-Preislisten niemals ins Repository hochladen. Sie werden über die App lokal importiert.
 
-`Artikelnummer | Produktname | Gebinde | UVP | FH 1 | FH 2 | FH 3 | FH 4 | FH 5`
+## Preisdatei
 
-Die Artikelnummer muss mit der `sku` in `src/app.js` übereinstimmen. Preise werden in `localStorage` des Geräts gespeichert und nicht hochgeladen.
+Erwartete Spalten:
 
-## Aktuelle öffentliche Unterlagen
+- Artikelnummer
+- Produktname
+- Gebinde
+- UVP
+- FH 1
+- FH 2
+- FH 3
+- FH 4
+- FH 5
 
-Katalog, Datenblätter, Produktbilder und Pläne werden über offizielle Schumacher-Links geöffnet. Die App speichert keine Kopien dieser Dokumente.
-
-## Wichtiger Hinweis
-
-Die Produkttexte dieses MVP sind Kurzfassungen für die Navigation. Verbindlich sind ausschließlich die jeweils aktuellen offiziellen Produktinformationen, Sicherheitsdatenblätter und Gebrauchsanweisungen.
+Hinweis: Die Produktdaten dieser Präsentationsversion dienen als funktionales UI-Muster. Verbindliche Produktinformationen, Wirksamkeiten und Einwirkzeiten sind stets den aktuell offiziellen Dokumenten zu entnehmen.
