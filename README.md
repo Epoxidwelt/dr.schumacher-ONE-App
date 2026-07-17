@@ -102,7 +102,7 @@ Wichtig: Wettbewerbszuordnungen und Gesprächsvorschläge sind interne Orientier
 
 Hinweis: Der erzeugte Entwurf ist unverbindlich und muss vor dem Versand kaufmännisch geprüft werden.
 
-## Neu in Version 2.0
+## Neu in Version 2.2
 
 - Besuchsbericht für Kundentermine
 - Felder für Ansprechpartner, Ausgangssituation, Feedback, Muster, Ergebnis und nächste Schritte
@@ -114,10 +114,26 @@ Hinweis: Der erzeugte Entwurf ist unverbindlich und muss vor dem Versand kaufmä
 Alle Besuchsdaten bleiben lokal im Browser. Für eine unternehmensweite Nutzung sollte später eine freigegebene CRM-Schnittstelle ergänzt werden.
 
 
-## Neu in Version 2.0
+## Neu in Version 2.2
 
 - Follow-up-Dashboard aus lokal gespeicherten Besuchsberichten
 - Kennzahlen für überfällige, heute fällige, kommende und erledigte Aufgaben
 - Aufgabenstatus: Offen, In Bearbeitung oder Erledigt
 - Berichte direkt aus dem Dashboard öffnen oder löschen
 - Neue Besuchsberichte direkt vom Dashboard anlegen
+
+
+## Version 2.2
+
+- lokale Rollenauswahl für Außendienst, Innendienst und Administrator
+- rollenabhängige Sichtbarkeit von Preisverwaltung, Angeboten und Berichten
+- sichtbare aktive Benutzerrolle in der Kopfzeile
+- Rollenwechsel über Einstellungen oder Kopfzeile
+- Hinweis: lokale Rollen sind Bedienlogik, keine zentrale Authentifizierung
+
+## Neu in Version 2.2
+
+- vollständige lokale Gerätesicherung als JSON-Datei
+- Wiederherstellung von Preisen, Favoriten, Merklisten, Angebotsdaten, Besuchsberichten und Einstellungen
+- Sicherungsdateien werden nicht hochgeladen und verlassen das Gerät nur über den vom Benutzer ausgelösten Download
+- Prüfung des Sicherungsformats und Bestätigung vor dem Überschreiben lokaler Daten

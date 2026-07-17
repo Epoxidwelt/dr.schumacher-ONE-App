@@ -24,8 +24,16 @@ const PRODUCTS = [
   {id:'wipes-spender',sku:'00-910-001',name:'VLIESTUCH-SPENDERSYSTEM',category:'application',kind:'Spender und Applikation',spectrum:[],summary:'Wiederverwendbares Spendersystem für getränkte Vliestücher.',facts:['Einfache Anwendung','Verschiedene Größen verfügbar','Aufbereitungshinweise beachten'],sizes:['Kompakt','Standard'],color:'#ef829a'}
 ];
 
+const USER_PROFILES = [
+  {id:'sales', name:'Außendienst', description:'Produkte, Kundentermine, Angebote und Follow-ups', permissions:['products','sales','reports']},
+  {id:'inside', name:'Innendienst', description:'Angebote, Berichte und Preisverwaltung', permissions:['products','sales','reports','prices']},
+  {id:'admin', name:'Administrator', description:'Vollzugriff einschließlich lokaler Datenverwaltung', permissions:['products','sales','reports','prices','admin']}
+];
+
+const storedProfile = sessionStorage.getItem('activeProfile') || '';
 const state = {
-  screen: sessionStorage.getItem('priceList') ? 'menu' : 'prices',
+  screen: storedProfile ? (sessionStorage.getItem('priceList') ? 'menu' : 'prices') : 'profile',
+  activeProfile: storedProfile,
   priceList: sessionStorage.getItem('priceList') || '',
   customerMode: sessionStorage.getItem('customerMode') === 'true',
   category: 'all', query: '', spectrum: 'all', selected: null,
@@ -79,11 +87,16 @@ function icon(name) {
   return icons[name] || '';
 }
 
+function currentProfile() { return USER_PROFILES.find(p => p.id === state.activeProfile) || USER_PROFILES[0]; }
+function can(permission) { return currentProfile().permissions.includes(permission); }
+
 function header(back=false) {
+  const profile=currentProfile();
   return `<header class="topbar">
     ${back ? '<button class="icon-button" data-action="back" aria-label="Zurück">←</button>' : ''}
     <img class="logo" src="public/assets/dr-schumacher-logo.png" alt="Dr. Schumacher">
     <div class="grow"></div>
+    <button class="profile-pill" data-action="profile"><span>Benutzerrolle</span><strong>${profile.name}</strong></button>
     <button class="customer-mode-pill ${state.customerMode?'active':''}" data-action="customer-mode"><span>${state.customerMode?'Kundenmodus':'Interner Modus'}</span><strong>${state.customerMode?'Preise verborgen':'Preise sichtbar'}</strong></button>
     <button class="price-pill" data-action="prices"><span>Aktive Preisliste</span><strong>${state.priceList || 'wählen'}</strong></button>
   </header>`;
@@ -101,6 +114,7 @@ function bottomNav(active='home') {
 function render() {
   const app = $('#app');
   let html = '';
+  if (state.screen === 'profile') html = profileScreen();
   if (state.screen === 'prices') html = priceScreen();
   if (state.screen === 'menu') html = header() + menuScreen() + bottomNav('home');
   if (state.screen === 'products') html = header(true) + productsScreen() + bottomNav('search');
@@ -120,6 +134,17 @@ function render() {
   bind();
 }
 
+
+function profileScreen() {
+  return `<main class="price-shell profile-shell"><section class="price-panel profile-panel">
+    <img class="welcome-logo" src="public/assets/dr-schumacher-logo.png" alt="Dr. Schumacher">
+    <span class="eyebrow">Interne Nutzung</span><h1>Wie möchten Sie die App verwenden?</h1>
+    <p>Wählen Sie Ihre Rolle. Die Auswahl steuert die sichtbaren Funktionen auf diesem Gerät.</p>
+    <div class="profile-options">${USER_PROFILES.map(profile=>`<button class="profile-option ${state.activeProfile===profile.id?'selected':''}" data-profile="${profile.id}"><span class="profile-avatar">${profile.id==='sales'?'AD':profile.id==='inside'?'ID':'A'}</span><span><strong>${profile.name}</strong><small>${profile.description}</small></span><b>›</b></button>`).join('')}</div>
+    <div class="role-note"><strong>Hinweis:</strong> Diese lokale Rollenauswahl verbessert die Bedienung, ersetzt aber keine zentrale Firmenanmeldung oder technische Zugriffskontrolle.</div>
+  </section></main>`;
+}
+
 function priceScreen() {
   const options = ['UVP','FH 1','FH 2','FH 3','FH 4','FH 5'];
   return `<main class="price-shell">
@@ -136,7 +161,7 @@ function priceScreen() {
 }
 
 function menuScreen() {
-  const cards = [
+  let cards = [
     ['surface','Fläche','Desinfektion & Reinigung'],
     ['hands','Hände & Haut','Händedesinfektion & Pflege'],
     ['instruments','Instrumente','Aufbereitung & Desinfektion'],
@@ -150,6 +175,8 @@ function menuScreen() {
     ['downloads','Downloads','Aktuelle Unterlagen online'],
     ['all','Alle Funktionen','Gesamte Produktübersicht öffnen']
   ];
+  if (!can('reports')) cards = cards.filter(card => !['report','dashboard'].includes(card[0]));
+  if (!can('sales')) cards = cards.filter(card => !['compare','lists','offer'].includes(card[0]));
   const today = new Date().toISOString().slice(0,10);
   const openReports = state.savedReports.filter(r => (r.taskStatus || 'Offen') !== 'Erledigt');
   const due = openReports.filter(r => r.followUp && r.followUp <= today).length;
@@ -503,9 +530,10 @@ function settingsScreen() {
   const meta = state.importMeta || {};
   const metaText = meta.file ? `${escapeHtml(meta.file)} · ${escapeHtml(meta.date || '')} · ${meta.rows || 0} Zeilen` : 'Noch keine Preisdatei importiert';
   return `<main class="page settings-page"><div class="section-heading"><div><span class="eyebrow">Verwaltung</span><h1>Einstellungen</h1></div></div>
-    <section class="settings-card"><button data-action="customer-mode"><span><strong>Kundengespräch-Modus</strong><small>${state.customerMode?'Aktiv – Preise sind verborgen':'Inaktiv – Preise sind sichtbar'}</small></span><b>${state.customerMode?'✓':'›'}</b></button><button data-action="prices"><span><strong>Preisliste wechseln</strong><small>Aktuell: ${state.priceList}</small></span><b>›</b></button><label class="file-row"><span><strong>Excel-Preise importieren</strong><small>.xlsx, .xls oder .csv – bleibt lokal</small></span><b>Datei auswählen</b><input id="excel" type="file" accept=".xlsx,.xls,.csv"></label><div id="importStatus" class="import-status"><strong>${metaText}</strong><br>${Object.keys(state.prices).length} Artikelnummern lokal gespeichert</div><button data-action="export-prices"><span><strong>Preisstand sichern</strong><small>Lokale JSON-Sicherung herunterladen</small></span><b>↓</b></button><button data-action="clear-prices"><span><strong>Lokale Preise löschen</strong><small>Entfernt nur die Daten auf diesem Gerät</small></span><b>×</b></button></section>
+    <section class="settings-card"><button data-action="profile"><span><strong>Benutzerrolle wechseln</strong><small>Aktuell: ${currentProfile().name}</small></span><b>›</b></button><button data-action="customer-mode"><span><strong>Kundengespräch-Modus</strong><small>${state.customerMode?'Aktiv – Preise sind verborgen':'Inaktiv – Preise sind sichtbar'}</small></span><b>${state.customerMode?'✓':'›'}</b></button><button data-action="prices"><span><strong>Preisliste wechseln</strong><small>Aktuell: ${state.priceList}</small></span><b>›</b></button>${can('prices')?`<label class="file-row"><span><strong>Excel-Preise importieren</strong><small>.xlsx, .xls oder .csv – bleibt lokal</small></span><b>Datei auswählen</b><input id="excel" type="file" accept=".xlsx,.xls,.csv"></label><div id="importStatus" class="import-status"><strong>${metaText}</strong><br>${Object.keys(state.prices).length} Artikelnummern lokal gespeichert</div><button data-action="export-prices"><span><strong>Preisstand sichern</strong><small>Lokale JSON-Sicherung herunterladen</small></span><b>↓</b></button><button data-action="clear-prices"><span><strong>Lokale Preise löschen</strong><small>Entfernt nur die Daten auf diesem Gerät</small></span><b>×</b></button>`:'<div class="permission-note"><strong>Preisverwaltung ausgeblendet</strong><span>Für diese Rolle ist kein Import oder Löschen von Preislisten vorgesehen.</span></div>'}</section>
+    <section class="settings-card"><button data-action="export-backup"><span><strong>Gerätesicherung erstellen</strong><small>Preise, Merklisten, Berichte und Einstellungen als JSON sichern</small></span><b>↓</b></button><label class="file-row"><span><strong>Gerätesicherung wiederherstellen</strong><small>Eine zuvor exportierte .json-Datei lokal einlesen</small></span><b>Datei auswählen</b><input id="backupImport" type="file" accept="application/json,.json"></label><div class="permission-note"><strong>Lokale Datensicherung</strong><span>Die Sicherungsdatei wird nur heruntergeladen beziehungsweise auf diesem Gerät eingelesen. Es findet kein Cloud-Upload statt.</span></div></section>
     <section class="settings-card"><a href="preisvorlage.csv" download><span><strong>Excel-Vorlage herunterladen</strong><small>Vorlage für UVP und FH 1 bis FH 5</small></span><b>↓</b></a><a href="${OFFICIAL.home}" target="_blank"><span><strong>Dr.-Schumacher-Website</strong><small>Öffnet die offizielle Website</small></span><b>↗</b></a></section>
-    <p class="version">Interner Produktberater · Präsentationsversion 1.8</p>
+    <p class="version">Interner Produktberater · Version 2.2</p>
   </main>`;
 }
 
@@ -535,6 +563,8 @@ function resolvePrice(product, size='') {
 function escapeHtml(text) { return String(text).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
 
 function bind() {
+  document.querySelectorAll('[data-profile]').forEach(button => button.onclick = () => { state.activeProfile=button.dataset.profile; sessionStorage.setItem('activeProfile',state.activeProfile); state.screen=sessionStorage.getItem('priceList')?'menu':'prices'; render(); });
+  document.querySelectorAll('[data-action="profile"]').forEach(button => button.onclick = () => { state.screen='profile'; render(); });
   document.querySelectorAll('[data-price]').forEach(button => button.onclick = () => {
     state.priceList = button.dataset.price;
     sessionStorage.setItem('priceList', state.priceList);
@@ -580,6 +610,8 @@ function bind() {
   $('[data-action="new-report"]')?.addEventListener('click', () => { state.visitReport={date:new Date().toISOString().slice(0,10),type:'Produktvorstellung',result:'Offen'}; localStorage.setItem('visitReport',JSON.stringify(state.visitReport)); state.screen='report'; render(); });
   document.querySelectorAll('[data-quote-item]').forEach(input => input.onchange = () => { saveQuoteItem(input.dataset.quoteItem, input.dataset.field, input.value); render(); });
   $('[data-action="export-prices"]')?.addEventListener('click', exportPrices);
+  $('[data-action="export-backup"]')?.addEventListener('click', exportDeviceBackup);
+  $('#backupImport')?.addEventListener('change', importDeviceBackup);
   $('#quoteCustomer')?.addEventListener('input', e => saveQuoteField('quoteCustomer', e.target.value));
   $('#quoteContact')?.addEventListener('input', e => saveQuoteField('quoteContact', e.target.value));
   $('#quoteNote')?.addEventListener('input', e => saveQuoteField('quoteNote', e.target.value));
@@ -609,9 +641,72 @@ function toggleFavorite(id) {
 }
 
 function saveQuoteField(key, value) { state[key]=value; localStorage.setItem(key,value); }
-function exportPrices() { const payload={exportedAt:new Date().toISOString(),meta:state.importMeta,prices:state.prices}; const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='schumacher-preisstand-'+new Date().toISOString().slice(0,10)+'.json'; a.click(); URL.revokeObjectURL(a.href); }
+
+const BACKUP_KEYS = [
+  'prices','priceImportMeta','favorites','recentProducts','compareIds','productLists','activeProductList',
+  'quoteCustomer','quoteContact','quoteNote','quoteValidUntil','quoteItems','visitReport','savedVisitReports'
+];
+
+function exportDeviceBackup() {
+  const localData = {};
+  BACKUP_KEYS.forEach(key => {
+    const value = localStorage.getItem(key);
+    if (value !== null) localData[key] = value;
+  });
+  const sessionData = {
+    activeProfile: sessionStorage.getItem('activeProfile') || '',
+    priceList: sessionStorage.getItem('priceList') || '',
+    customerMode: sessionStorage.getItem('customerMode') || 'false'
+  };
+  const payload = {
+    format: 'dr-schumacher-sales-companion-backup',
+    version: '2.2',
+    exportedAt: new Date().toISOString(),
+    localData,
+    sessionData
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'schumacher-app-sicherung-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+async function importDeviceBackup(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  try {
+    const payload = JSON.parse(await file.text());
+    if (payload.format !== 'dr-schumacher-sales-companion-backup' || !payload.localData) {
+      throw new Error('Die Datei ist keine gültige Sicherung dieser App.');
+    }
+    const keyCount = Object.keys(payload.localData).filter(key => BACKUP_KEYS.includes(key)).length;
+    if (!confirm(`Sicherung vom ${new Date(payload.exportedAt || Date.now()).toLocaleString('de-DE')} wiederherstellen? Dabei werden ${keyCount} lokale Datenbereiche ersetzt.`)) {
+      event.target.value = '';
+      return;
+    }
+    BACKUP_KEYS.forEach(key => localStorage.removeItem(key));
+    Object.entries(payload.localData).forEach(([key, value]) => {
+      if (BACKUP_KEYS.includes(key) && typeof value === 'string') localStorage.setItem(key, value);
+    });
+    if (payload.sessionData) {
+      ['activeProfile','priceList','customerMode'].forEach(key => {
+        if (typeof payload.sessionData[key] === 'string') sessionStorage.setItem(key, payload.sessionData[key]);
+      });
+    }
+    alert('Sicherung wurde erfolgreich wiederhergestellt. Die App wird neu geladen.');
+    location.reload();
+  } catch (error) {
+    alert('Wiederherstellung fehlgeschlagen: ' + error.message);
+    event.target.value = '';
+  }
+}
+
+function exportPrices() { if (!can('prices')) { alert('Für diese Rolle ist der Export nicht freigeschaltet.'); return; } const payload={exportedAt:new Date().toISOString(),meta:state.importMeta,prices:state.prices}; const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='schumacher-preisstand-'+new Date().toISOString().slice(0,10)+'.json'; a.click(); URL.revokeObjectURL(a.href); }
 
 async function importExcel(event) {
+  if (!can('prices')) { alert('Für diese Rolle ist der Preisimport nicht freigeschaltet.'); return; }
   const status = $('#importStatus');
   const file = event.target.files[0];
   if (!file) return;
