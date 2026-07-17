@@ -81,3 +81,12 @@ Hinweis: Empfehlungen sind Orientierungshilfen. Verbindlich sind immer die aktue
 - Alle neuen Daten bleiben lokal im Browser; keine Cloud-Übertragung
 
 Wichtig: Wettbewerbszuordnungen und Gesprächsvorschläge sind interne Orientierungshilfen. Verbindlich sind ausschließlich aktuelle offizielle Produktinformationen, Freigaben und Sicherheitsunterlagen.
+
+## Neu in Version 1.6
+
+- Kundenübersicht aus der aktuell ausgewählten Merkliste
+- Felder für Einrichtung, Ansprechpartner und Gesprächsnotiz
+- Druckansicht, die im Browser direkt als PDF gespeichert werden kann
+- Kundenansicht mit ausgeblendeten Preisen
+- Anzeige von Dateiname, Importzeit und Zeilenzahl der zuletzt importierten Preisliste
+- lokale JSON-Sicherung des Preisstands

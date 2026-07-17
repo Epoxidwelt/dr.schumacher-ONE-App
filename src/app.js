@@ -38,7 +38,11 @@ const state = {
   lists: JSON.parse(localStorage.getItem('productLists') || '{}'),
   activeList: localStorage.getItem('activeProductList') || 'Meine Merkliste',
   competitorQuery: '',
-  talkProduct: '', talkSituation: 'Kurzvorstellung'
+  talkProduct: '', talkSituation: 'Kurzvorstellung',
+  quoteCustomer: localStorage.getItem('quoteCustomer') || '',
+  quoteContact: localStorage.getItem('quoteContact') || '',
+  quoteNote: localStorage.getItem('quoteNote') || '',
+  importMeta: JSON.parse(localStorage.getItem('priceImportMeta') || '{}')
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -62,7 +66,8 @@ function icon(name) {
     recent:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
     lists:'<svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>',
     competition:'<svg viewBox="0 0 24 24"><path d="M4 7h16M7 4v16M17 4v16M4 17h16"/></svg>',
-    talk:'<svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4V5Z"/><path d="M8 9h8M8 12h6"/></svg>'
+    talk:'<svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4V5Z"/><path d="M8 9h8M8 12h6"/></svg>',
+    offer:'<svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 11h6M9 15h6"/></svg>'
   };
   return icons[name] || '';
 }
@@ -101,6 +106,7 @@ function render() {
   if (state.screen === 'lists') html = header(true) + listsScreen() + bottomNav('favorites');
   if (state.screen === 'competition') html = header(true) + competitionScreen() + bottomNav('home');
   if (state.screen === 'talk') html = header(true) + talkScreen() + bottomNav('home');
+  if (state.screen === 'offer') html = header(true) + offerScreen() + bottomNav('home');
   app.innerHTML = html;
   bind();
 }
@@ -133,7 +139,8 @@ function menuScreen() {
     ['recent','Zuletzt angesehen','Schnell zurück zu geöffneten Produkten'],
     ['lists','Merklisten','Produkte für Termine zusammenstellen'],
     ['competition','Wettbewerbsvergleich','Alternativen schnell einordnen'],
-    ['talk','Gesprächsassistent','Passende Argumentation vorbereiten']
+    ['talk','Gesprächsassistent','Passende Argumentation vorbereiten'],
+    ['offer','Kundenübersicht','Merkliste als Präsentation oder PDF']
   ];
   return `<main class="page menu-page">
     <section class="intro-card"><div><span class="eyebrow">Schnell. Einfach. Aktuell.</span><h1>Was möchten Sie zeigen?</h1><p>Wählen Sie einen Bereich oder suchen Sie direkt nach einem Produkt.</p></div><div class="status-card"><span>Preisliste</span><strong>${state.priceList}</strong><small>${Object.keys(state.prices).length} Preiszeilen lokal</small></div></section>
@@ -286,16 +293,36 @@ function talkScreen(){
 }
 function buildTalkText(){const p=PRODUCTS.find(x=>x.id===state.talkProduct)||PRODUCTS[0];const fact=p.facts[0].replace(/^[A-ZÄÖÜ]/,m=>m.toLowerCase());if(state.talkSituation==='Bedarf ermitteln')return `Damit ich Ihnen das passende Produkt empfehlen kann: Auf welchen Flächen oder in welchem Prozess möchten Sie es einsetzen, welches Wirkspektrum benötigen Sie und gibt es empfindliche Materialien oder besondere Vorgaben? Anschließend prüfen wir gemeinsam, ob ${p.name} passt.`;if(state.talkSituation==='Einwand: zu teuer')return `Ich verstehe, dass der Preis wichtig ist. Bei ${p.name} sollten wir deshalb nicht nur den Gebindepreis betrachten, sondern Anwendung, Verbrauch, Prozessaufwand und Produktausnutzung. Besonders relevant ist, dass ${fact}. Lassen Sie uns die Kosten pro Anwendung vergleichen.`;if(state.talkSituation==='Abschlussfrage')return `Auf Basis Ihrer Anforderungen halte ich ${p.name} für eine passende Option. Sollen wir die aktuelle Produktinformation gemeinsam prüfen und anschließend ein Muster beziehungsweise ein konkretes Angebot für das passende Gebinde vorbereiten?`;return `${p.name} ist für ${p.kind.toLowerCase()} vorgesehen. Der zentrale Mehrwert: ${fact}. Entscheidend ist, dass wir das Produkt passend zu Ihrem Einsatzbereich und dem benötigten Wirkspektrum auswählen. Die verbindlichen Einwirkzeiten und Freigaben prüfen wir direkt in der aktuellen Produktinformation.`}
 
+
+function offerScreen() {
+  const ids = state.lists[state.activeList] || [];
+  const products = ids.map(id => PRODUCTS.find(p => p.id === id)).filter(Boolean);
+  const rows = products.map(p => {
+    const size = p.sizes[0] || '';
+    const price = resolvePrice(p, size);
+    return `<tr><td><strong>${p.name}</strong><small>${p.kind}<br>Art.-Nr. ${p.sku}</small></td><td>${size}</td><td>${p.spectrum.join(', ') || '–'}</td><td class="offer-price">${state.customerMode ? 'ausgeblendet' : money(price)}</td></tr>`;
+  }).join('');
+  return `<main class="page offer-page"><div class="section-heading no-print"><div><span class="eyebrow">Kundentermin</span><h1>Kundenübersicht</h1><p>Erstellt aus der aktiven Merkliste „${escapeHtml(state.activeList)}“.</p></div></div>
+    <section class="offer-config no-print"><label>Kunde / Einrichtung<input id="quoteCustomer" value="${escapeHtml(state.quoteCustomer)}" placeholder="z. B. Klinikum Dortmund"></label><label>Ansprechpartner<input id="quoteContact" value="${escapeHtml(state.quoteContact)}" placeholder="Name oder Funktion"></label><label class="wide">Notiz<textarea id="quoteNote" placeholder="Ziel, nächste Schritte oder besondere Anforderungen">${escapeHtml(state.quoteNote)}</textarea></label><div class="offer-actions wide"><button class="secondary-button" data-action="customer-mode">${state.customerMode?'Preise wieder anzeigen':'Preise für Kunden ausblenden'}</button><button class="primary-button compact" data-action="print-offer">Drucken / als PDF speichern</button></div></section>
+    <section class="offer-sheet"><div class="offer-brand"><img src="public/assets/dr-schumacher-logo.png" alt="Dr. Schumacher"><div><span>Produktübersicht</span><strong>${escapeHtml(state.quoteCustomer || 'Kundentermin')}</strong><small>${escapeHtml(state.quoteContact || '')}</small></div></div><div class="offer-meta"><span>Merkliste: ${escapeHtml(state.activeList)}</span><span>Preisbasis: ${state.customerMode?'ohne Preise':escapeHtml(state.priceList)}</span><span>Stand: ${new Date().toLocaleDateString('de-DE')}</span></div>
+      ${products.length ? `<table class="offer-table"><thead><tr><th>Produkt</th><th>Gebinde</th><th>Wirkspektrum</th><th>${state.customerMode?'Preis':'Preis '+escapeHtml(state.priceList)}</th></tr></thead><tbody>${rows}</tbody></table>` : '<div class="empty-state"><h2>Die Merkliste ist leer</h2><p>Fügen Sie zuerst Produkte einer Merkliste hinzu.</p></div>'}
+      ${state.quoteNote ? `<div class="offer-note"><strong>Notiz</strong><p>${escapeHtml(state.quoteNote)}</p></div>` : ''}
+      <div class="offer-disclaimer">Interne Gesprächsunterlage. Verbindliche Anwendung, Einwirkzeiten, Materialverträglichkeit und Sicherheit ausschließlich anhand der aktuellen offiziellen Produktinformationen prüfen.</div>
+    </section></main>`;
+}
+
 function favoritesScreen() {
   const list = PRODUCTS.filter(p => state.favorites.includes(p.id));
   return `<main class="page products-page"><div class="section-heading"><div><span class="eyebrow">Persönliche Auswahl</span><h1>Favoriten</h1></div><span class="result-count">${list.length}</span></div><div class="product-list">${list.map(productCard).join('') || '<div class="empty-state"><h2>Noch keine Favoriten</h2><p>Tippen Sie bei einem Produkt auf den Stern.</p></div>'}</div></main>`;
 }
 
 function settingsScreen() {
+  const meta = state.importMeta || {};
+  const metaText = meta.file ? `${escapeHtml(meta.file)} · ${escapeHtml(meta.date || '')} · ${meta.rows || 0} Zeilen` : 'Noch keine Preisdatei importiert';
   return `<main class="page settings-page"><div class="section-heading"><div><span class="eyebrow">Verwaltung</span><h1>Einstellungen</h1></div></div>
-    <section class="settings-card"><button data-action="customer-mode"><span><strong>Kundengespräch-Modus</strong><small>${state.customerMode?'Aktiv – Preise sind verborgen':'Inaktiv – Preise sind sichtbar'}</small></span><b>${state.customerMode?'✓':'›'}</b></button><button data-action="prices"><span><strong>Preisliste wechseln</strong><small>Aktuell: ${state.priceList}</small></span><b>›</b></button><label class="file-row"><span><strong>Excel-Preise importieren</strong><small>.xlsx, .xls oder .csv – bleibt lokal</small></span><b>Datei auswählen</b><input id="excel" type="file" accept=".xlsx,.xls,.csv"></label><div id="importStatus" class="import-status">${Object.keys(state.prices).length ? `${Object.keys(state.prices).length} Preiszeilen gespeichert` : 'Noch keine Preisdatei importiert'}</div><button data-action="clear-prices"><span><strong>Lokale Preise löschen</strong><small>Entfernt nur die Daten auf diesem Gerät</small></span><b>×</b></button></section>
+    <section class="settings-card"><button data-action="customer-mode"><span><strong>Kundengespräch-Modus</strong><small>${state.customerMode?'Aktiv – Preise sind verborgen':'Inaktiv – Preise sind sichtbar'}</small></span><b>${state.customerMode?'✓':'›'}</b></button><button data-action="prices"><span><strong>Preisliste wechseln</strong><small>Aktuell: ${state.priceList}</small></span><b>›</b></button><label class="file-row"><span><strong>Excel-Preise importieren</strong><small>.xlsx, .xls oder .csv – bleibt lokal</small></span><b>Datei auswählen</b><input id="excel" type="file" accept=".xlsx,.xls,.csv"></label><div id="importStatus" class="import-status"><strong>${metaText}</strong><br>${Object.keys(state.prices).length} Artikelnummern lokal gespeichert</div><button data-action="export-prices"><span><strong>Preisstand sichern</strong><small>Lokale JSON-Sicherung herunterladen</small></span><b>↓</b></button><button data-action="clear-prices"><span><strong>Lokale Preise löschen</strong><small>Entfernt nur die Daten auf diesem Gerät</small></span><b>×</b></button></section>
     <section class="settings-card"><a href="preisvorlage.csv" download><span><strong>Excel-Vorlage herunterladen</strong><small>Vorlage für UVP und FH 1 bis FH 5</small></span><b>↓</b></a><a href="${OFFICIAL.home}" target="_blank"><span><strong>Dr.-Schumacher-Website</strong><small>Öffnet die offizielle Website</small></span><b>↗</b></a></section>
-    <p class="version">Interner Produktberater · Präsentationsversion 1.5</p>
+    <p class="version">Interner Produktberater · Präsentationsversion 1.6</p>
   </main>`;
 }
 
@@ -333,9 +360,9 @@ function bind() {
   document.querySelectorAll('[data-action="prices"]').forEach(button => button.onclick = () => { state.screen='prices'; render(); });
   $('[data-action="start"]')?.addEventListener('click', () => { state.screen='menu'; render(); });
   $('[data-action="back"]')?.addEventListener('click', () => { state.screen = state.screen==='detail' ? 'products' : 'menu'; render(); });
-  $('[data-action="clear-prices"]')?.addEventListener('click', () => { state.prices={}; localStorage.removeItem('prices'); render(); });
+  $('[data-action="clear-prices"]')?.addEventListener('click', () => { state.prices={}; state.importMeta={}; localStorage.removeItem('prices'); localStorage.removeItem('priceImportMeta'); render(); });
   document.querySelectorAll('[data-action="customer-mode"]').forEach(button => button.onclick = () => { state.customerMode=!state.customerMode; sessionStorage.setItem('customerMode', String(state.customerMode)); render(); });
-  document.querySelectorAll('[data-category]').forEach(button => button.onclick = () => { const key=button.dataset.category; if(['advisor','recent','compare','lists','competition','talk'].includes(key)){state.screen=key; render(); return;} state.category=key; state.screen='products'; state.query=''; state.spectrum='all'; render(); });
+  document.querySelectorAll('[data-category]').forEach(button => button.onclick = () => { const key=button.dataset.category; if(['advisor','recent','compare','lists','competition','talk','offer'].includes(key)){state.screen=key; render(); return;} state.category=key; state.screen='products'; state.query=''; state.spectrum='all'; render(); });
   document.querySelectorAll('[data-spectrum]').forEach(button => button.onclick = () => { state.spectrum=button.dataset.spectrum; render(); });
   document.querySelectorAll('[data-product]').forEach(row => row.onclick = event => { if (event.target.closest('[data-favorite]')) return; state.selected=row.dataset.product; state.size=''; state.recent=[state.selected,...state.recent.filter(x=>x!==state.selected)].slice(0,8); localStorage.setItem('recentProducts', JSON.stringify(state.recent)); state.screen='detail'; render(); });
   document.querySelectorAll('[data-favorite]').forEach(button => button.onclick = event => { event.stopPropagation(); toggleFavorite(button.dataset.favorite); });
@@ -354,6 +381,11 @@ function bind() {
   $('#talkProduct')?.addEventListener('change', e => { state.talkProduct=e.target.value; render(); });
   $('#talkSituation')?.addEventListener('change', e => { state.talkSituation=e.target.value; render(); });
   $('[data-action="copy-talk"]')?.addEventListener('click', async () => { const text=buildTalkText(); try{await navigator.clipboard.writeText(text);alert('Gesprächsleitfaden kopiert.')}catch{alert(text)} });
+  $('[data-action="print-offer"]')?.addEventListener('click', () => window.print());
+  $('[data-action="export-prices"]')?.addEventListener('click', exportPrices);
+  $('#quoteCustomer')?.addEventListener('input', e => saveQuoteField('quoteCustomer', e.target.value));
+  $('#quoteContact')?.addEventListener('input', e => saveQuoteField('quoteContact', e.target.value));
+  $('#quoteNote')?.addEventListener('input', e => saveQuoteField('quoteNote', e.target.value));
   document.querySelectorAll('[data-nav]').forEach(button => button.onclick = () => {
     const nav = button.dataset.nav;
     if (nav==='home') state.screen='menu';
@@ -377,6 +409,9 @@ function toggleFavorite(id) {
   localStorage.setItem('favorites', JSON.stringify(state.favorites));
   render();
 }
+
+function saveQuoteField(key, value) { state[key]=value; localStorage.setItem(key,value); }
+function exportPrices() { const payload={exportedAt:new Date().toISOString(),meta:state.importMeta,prices:state.prices}; const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='schumacher-preisstand-'+new Date().toISOString().slice(0,10)+'.json'; a.click(); URL.revokeObjectURL(a.href); }
 
 async function importExcel(event) {
   const status = $('#importStatus');
@@ -412,6 +447,8 @@ async function importExcel(event) {
     }
     state.prices = mapped;
     localStorage.setItem('prices', JSON.stringify(mapped));
+    state.importMeta={file:file.name,date:new Date().toLocaleString('de-DE'),rows:validRows};
+    localStorage.setItem('priceImportMeta',JSON.stringify(state.importMeta));
     const matchedProducts = PRODUCTS.filter(p => mapped[p.sku]).length;
     const unknownSkus = Object.keys(mapped).filter(sku => !PRODUCTS.some(p => p.sku === sku));
     const summary = `${validRows} gültige Preiszeilen · ${matchedProducts} Produkte zugeordnet` +
